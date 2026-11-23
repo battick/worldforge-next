@@ -84,6 +84,8 @@ test('external save during the Markdown debounce window does not erase local typ
 });
 
 test('S1.2 browser example stores both worlds, rejects incomplete migration and deduplicates', async ({ page, request }) => {
+  const before = await (await request.get('/api/core/snapshot')).json();
+  const revision = before.state.revision;
   await page.goto('/');
   await page.getByRole('button', { name: 'Markdown 源码', exact: true }).click();
   await page.getByRole('textbox', { name: 'Markdown 源码', exact: true }).fill('# 切换入口仍保留的草稿');
@@ -95,21 +97,21 @@ test('S1.2 browser example stores both worlds, rejects incomplete migration and 
   await page.goBack();
   await expect(page.getByRole('heading', { name: '数据验证台', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '新增一组验证资料' }).click();
-  await expect(page.locator('.data-summary')).toContainText('2 个世界');
+  await expect(page.locator('.data-summary')).toContainText(`${before.state.worlds.length + 2} 个世界`);
   await page.getByRole('button', { name: '尝试不完整转换' }).click();
   await expect(page.locator('.data-message')).toContainText('未保存');
-  await expect(page.locator('.data-summary')).toContainText('版本 1');
+  await expect(page.locator('.data-summary')).toContainText(`版本 ${revision + 1}`);
   await page.getByRole('button', { name: '一起转换定义和值' }).click();
-  await expect(page.locator('.data-summary')).toContainText('版本 2');
+  await expect(page.locator('.data-summary')).toContainText(`版本 ${revision + 2}`);
   await page.getByRole('button', { name: '重复上次请求' }).click();
   await expect(page.locator('.data-message')).toContainText('没有新增');
   await page.reload();
   await expect(page.getByRole('heading', { name: '数据验证台', exact: true })).toBeVisible();
-  await expect(page.locator('.data-summary')).toContainText('版本 2');
+  await expect(page.locator('.data-summary')).toContainText(`版本 ${revision + 2}`);
   const snapshot = await (await request.get('/api/core/snapshot')).json();
-  expect(snapshot.history).toHaveLength(2); expect(snapshot.state.worlds).toHaveLength(2);
+  expect(snapshot.history).toHaveLength(before.history.length + 2); expect(snapshot.state.worlds).toHaveLength(before.state.worlds.length + 2);
   await page.goto('/#data');
-  await expect(page.locator('.data-summary')).toContainText('版本 2');
+  await expect(page.locator('.data-summary')).toContainText(`版本 ${revision + 2}`);
   await page.screenshot({ path: 'test-results/data-workbench.png', fullPage: true });
 });
 

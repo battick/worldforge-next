@@ -3,7 +3,7 @@ export const objectKinds = ['world', 'entry', 'relation'] as const;
 export type ObjectKind = typeof objectKinds[number];
 export const roles = ['id', 'kind', 'created', 'updated', 'version'] as const;
 export type SystemRole = typeof roles[number];
-export const marks = ['identity', 'kind', 'created', 'updated', 'version', 'title', 'body', 'classification', 'navigation', 'source', 'target', 'time-start', 'time-end', 'time-point', 'summary', 'cover'] as const;
+export const marks = ['identity', 'kind', 'created', 'updated', 'version', 'title', 'body', 'classification', 'navigation', 'source', 'target', 'time-start', 'time-end', 'time-point', 'summary', 'cover', 'world-status', 'navigation-folder'] as const;
 export interface Constraints {
   required?: boolean; minCount?: number; maxCount?: number; min?: number; max?: number; minLength?: number; maxLength?: number;
   options?: string[]; unique?: 'world' | 'workspace'; targetKinds?: ObjectKind[]; sameWorld?: boolean;

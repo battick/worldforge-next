@@ -4,7 +4,7 @@ export function DataWorkbench() {
   const { view, example, last, message, busy, seed, convert, replay, reload } = useDataWorkbench();
   return <section className="data-workbench">
     <span className="eyebrow">S1.2 · 统一数据与修改记录</span><h1>数据验证台</h1>
-    <p>用虚构资料检查共享字段、多端关系、整体保存与操作去重。这里展示真实保存的数据，世界创建与 Wiki 编辑将在下一阶段接入。</p>
+    <p>用虚构资料检查共享字段、多端关系、整体保存与操作去重。手工创建和编辑请进入“世界与 Wiki”。</p>
     <div className="data-actions"><button onClick={seed} disabled={busy}>新增一组验证资料</button><button onClick={() => convert(false)} disabled={busy || !example}>尝试不完整转换</button><button onClick={() => convert(true)} disabled={busy || !example}>一起转换定义和值</button><button onClick={replay} disabled={busy || !last}>重复上次请求</button><button onClick={reload} disabled={busy}>重新读取</button></div>
     <p className="data-message" role="status">{busy ? '正在校验并保存…' : message}</p>
     {view && <>

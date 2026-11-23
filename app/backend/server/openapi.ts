@@ -18,7 +18,7 @@ const errors = Object.fromEntries([400, 403, 404, 409, 413, 415, 422, 500, 503].
 const endpoint = (summary: string, output: z.ZodType, input?: z.ZodType, status = 200) => ({ summary, ...(input ? { requestBody: { required: true, content: content(input) } } : {}), responses: { [status]: { description: '成功', content: content(output) }, ...errors } });
 
 export const openApiDocument = {
-  openapi: '3.1.0', info: { title: 'WorldForge 本机数据接口', version: API_VERSION, description: '前端替换时保持本接口；S1.2范围，Agent仍为固定回复演示。' }, servers: [{ url: 'http://127.0.0.1:4318' }],
+  openapi: '3.1.0', info: { title: 'WorldForge 本机数据接口', version: API_VERSION, description: '前端替换时保持本接口；支持手工世界、Wiki和空间资料，Agent仍为固定回复演示。' }, servers: [{ url: 'http://127.0.0.1:4318' }],
   paths: {
     [API.openapi]: { get: endpoint('获取当前OpenAPI接口说明，正文为OpenAPI文档对象', z.record(z.string(), z.unknown())) },
     [API.health]: { get: endpoint('检查后端状态', z.object({ status: z.literal('ok'), stage: z.string(), model: z.literal('demo'), apiVersion: z.string() })) },

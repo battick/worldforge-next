@@ -62,7 +62,7 @@ export async function createApplication(options: { dataDir: string; tickMs?: num
         res.end(); return;
       }
       if (url.pathname === '/api/openapi.json' && req.method === 'GET') { json(res, 200, openApiDocument); return; }
-      if (url.pathname === '/api/health' && req.method === 'GET') { json(res, 200, { status: 'ok', stage: 'S1.2', model: 'demo', apiVersion: API_VERSION }); return; }
+      if (url.pathname === '/api/health' && req.method === 'GET') { json(res, 200, { status: 'ok', stage: 'S1.3', model: 'demo', apiVersion: API_VERSION }); return; }
       if (url.pathname === '/api/core/snapshot' && req.method === 'GET') {
         json(res, 200, store.db.transaction(() => ({ state: workspace.read(), history: workspace.history(), references: workspace.references() }))()); return;
       }

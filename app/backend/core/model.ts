@@ -72,7 +72,7 @@ export function validateState(state: WorkspaceState): ReferenceIndex[] {
     if (c.targetKinds && d.type !== 'reference') fail(p, '对象用途约束只能用于对象引用。');
     if ((c.minCount ?? 0) > (c.maxCount ?? Infinity) || (c.min ?? -Infinity) > (c.max ?? Infinity) || (c.minLength ?? 0) > (c.maxLength ?? Infinity)) fail(p, '约束上下限不匹配。');
     if (d.type === 'choice' && (!c.options?.length || new Set(c.options).size !== c.options.length)) fail(p, '选项必须非空且不重复。');
-    const compat: Partial<Record<typeof marks[number], string[]>> = { identity: ['text'], kind: ['text'], created: ['text'], updated: ['text'], version: ['number'], title: ['text'], body: ['resource'], source: ['reference'], target: ['reference'], navigation: ['reference'], cover: ['resource'] };
+    const compat: Partial<Record<typeof marks[number], string[]>> = { identity: ['text'], kind: ['text'], created: ['text'], updated: ['text'], version: ['number'], title: ['text'], body: ['resource'], source: ['reference'], target: ['reference'], navigation: ['reference'], cover: ['resource'], 'world-status': ['choice'], 'navigation-folder': ['boolean'] };
     for (const mark of d.marks) {
       if (compat[mark] && !compat[mark]!.includes(d.type)) fail(p, `功能标记 ${mark} 与字段类型不兼容。`);
       if (['identity', 'kind', 'created', 'updated', 'version'].includes(mark) && !d.system) fail(p, '系统职责标记不能添加到普通字段。');
@@ -100,6 +100,8 @@ export function validateState(state: WorkspaceState): ReferenceIndex[] {
       if (!d) fail(fp, '字段定义不存在，不能保留无定义的值。');
       if (d.scope !== 'global' && d.scope !== o.worldId) fail(fp, '不能使用其他世界的本地字段。');
       const c = d.constraints;
+      if (d.marks.includes('world-status') && (kindOf(o) !== 'world' || values.length > 1 || values.some(v => !['draft', 'created'].includes(String(v))))) fail(fp, '创建进度只能用于世界，值为draft或created且至多一项。');
+      if (d.marks.includes('navigation-folder') && kindOf(o) !== 'entry') fail(fp, '导航文件夹用途只能用于条目。');
       for (const mark of ['time-start', 'time-end'] as const) if (d.marks.includes(mark)) {
         if (intervalFields.has(mark) || values.length > 1) fail(fp, '一个对象的时间开始和结束各至多一项。');
         intervalFields.add(mark);
