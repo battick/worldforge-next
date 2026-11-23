@@ -77,9 +77,10 @@ export function WikiWorkbench() {
   return <WikiPreviewContext.Provider value={pin}><section className="wiki-workbench" aria-label="手工Wiki">
     <div className="wiki-heading"><div><span className="eyebrow">世界与资料</span><h1>我的世界</h1></div><button className="button-primary" onClick={() => { if (!worldForm || !worldDraft.current?.dirty() || window.confirm('世界草案尚未保存，确定关闭表单吗？')) setWorldForm(open => !open); }}>创建世界</button></div>
     {worldForm && <CreateWorld ref={worldDraft} state={state} execute={execute} onCreated={(next, id) => { setWorldForm(false); route(next, id); }} />}
+    <p className="wiki-note">选择下面的世界，进入条目、正文、资料空间、字段和修改记录；也可以创建新世界。</p>
     <div className="wiki-world-list">{state.worlds.map(w => {
       const object = state.objects.find(o => o.id === w.rootId)!;
-      return <button key={w.id} className={w.id === worldId ? 'selected' : ''} aria-pressed={w.id === worldId} onClick={() => open(w.rootId)}>{titleOf(state, object)}<small>{worldStatus(state, object) === 'created' ? '正式世界' : worldStatus(state, object) === 'draft' ? '创建草案' : '已有资料'}</small></button>;
+      return <button key={w.id} className={w.id === worldId ? 'selected' : ''} aria-pressed={w.id === worldId} onClick={() => open(w.rootId)}>{titleOf(state, object)}<small>{worldStatus(state, object) === 'created' ? '正式世界' : worldStatus(state, object) === 'draft' ? '创建草案' : '已有资料'}</small><small>打开世界 →</small></button>;
     })}{!state.worlds.length && <p>可以从空白、一个想法或已有资料开始，之后随时补全。</p>}</div>
     {root && <>
       <div className="wiki-world-heading"><h2>{titleOf(state, root)}</h2><span className="wiki-note">{worldStatus(state, root) === 'created' ? '已确认创建' : '草案和已有内容都会保存；可以直接进入详细编辑。'}</span>{worldStatus(state, root) !== 'created' && <button disabled={busy} onClick={() => run(async () => { await execute(confirmWorld(state, worldId)); setNotice('世界已确认创建，现有条目和资料全部保留。'); })}>确认创建世界</button>}<button onClick={() => { if (!hasDirty() || window.confirm('重新读取会放弃未保存内容，确定吗？')) void run(async () => { await load(); setGeneration(n => n + 1); setNewKind(undefined); }); }}>重新读取世界</button></div>

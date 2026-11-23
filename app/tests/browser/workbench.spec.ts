@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('real Milkdown editing/Markdown round trip, persisted assistant-ui stream and responsive layout', async ({ page, request }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/#paper');
   await expect(page.getByText('本机服务已连接')).toBeVisible();
   const editor = page.locator('.milkdown .ProseMirror');
   await expect(editor).toBeVisible();
@@ -68,7 +68,7 @@ test('real Milkdown editing/Markdown round trip, persisted assistant-ui stream a
 });
 
 test('external save during the Markdown debounce window does not erase local typing', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/#paper');
   const editor = page.locator('.milkdown .ProseMirror'); await expect(editor).toBeVisible();
   const before = (await (await request.get('/api/snapshot')).json()).document;
   await page.clock.install(); await page.clock.pauseAt(new Date());
@@ -86,7 +86,7 @@ test('external save during the Markdown debounce window does not erase local typ
 test('S1.2 browser example stores both worlds, rejects incomplete migration and deduplicates', async ({ page, request }) => {
   const before = await (await request.get('/api/core/snapshot')).json();
   const revision = before.state.revision;
-  await page.goto('/');
+  await page.goto('/#paper');
   await page.getByRole('button', { name: 'Markdown 源码', exact: true }).click();
   await page.getByRole('textbox', { name: 'Markdown 源码', exact: true }).fill('# 切换入口仍保留的草稿');
   await page.getByRole('link', { name: '进入 S1.2 数据验证' }).click();
@@ -116,7 +116,7 @@ test('S1.2 browser example stores both worlds, rejects incomplete migration and 
 });
 
 test('a separately served frontend can call the API origin and subscribe to events directly', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#paper');
   await expect(page.getByText('本机服务已连接')).toBeVisible();
   const result = await page.evaluate(async () => {
     const base = 'http://127.0.0.1:4330';

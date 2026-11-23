@@ -4,17 +4,21 @@ import { DocumentPanel } from './DocumentPanel.tsx';
 import { AgentPanel } from './AgentPanel.tsx';
 import { DataWorkbench } from './DataWorkbench.tsx';
 import { WikiWorkbench } from './WikiWorkbench.tsx';
+import { useWebUpdate } from './hooks/useWebUpdate.ts';
+
+const readPage = () => location.hash === '#paper' ? 'paper' : location.hash === '#data' ? 'data' : 'wiki';
 
 export function App() {
   const { snapshot, connected, error } = useDemoSnapshot();
+  const updateAvailable = useWebUpdate();
   const [agentOpen, setAgentOpen] = useState(true);
-  const [page, setPage] = useState<'paper' | 'data' | 'wiki'>(() => location.hash.startsWith('#wiki') ? 'wiki' : location.hash === '#data' ? 'data' : 'paper');
+  const [page, setPage] = useState<'paper' | 'data' | 'wiki'>(readPage);
   const navigate = (next: 'paper' | 'data' | 'wiki') => {
     setPage(next);
     location.hash = next;
   };
   useEffect(() => {
-    const syncPage = () => setPage(location.hash.startsWith('#wiki') ? 'wiki' : location.hash === '#data' ? 'data' : 'paper');
+    const syncPage = () => setPage(readPage());
     window.addEventListener('hashchange', syncPage);
     return () => window.removeEventListener('hashchange', syncPage);
   }, []);
@@ -29,10 +33,14 @@ export function App() {
       <div className="nav-footer"><span className="status-dot" /> 本机工作空间<small>数据保存在你的电脑上</small></div>
     </aside>
     <div className="workspace-shell">
-      <header className="topbar"><div className="breadcrumb">工作台 <span>/</span> <strong>{page === 'wiki' ? '世界与 Wiki' : page === 'paper' ? '组件接入演示' : '统一数据验证'}</strong></div><div className="topbar-actions"><button className="agent-toggle" onClick={() => navigate(page === 'paper' ? 'data' : 'paper')}>{page === 'paper' ? '数据验证' : '返回创作纸'}</button><span className={connected ? 'connection' : 'connection offline'}><span className="status-dot" />{connected ? '本机服务已连接' : '服务未连接 · 正在重连'}</span><button className="agent-toggle" aria-pressed={agentOpen} onClick={() => setAgentOpen(open => !open)}>{agentOpen ? '收起助手' : '展开助手'} <span>◧</span></button></div></header>
+      <header className="topbar"><div className="breadcrumb">工作台 <span>/</span> <strong>{page === 'wiki' ? '世界与 Wiki' : page === 'paper' ? '组件接入演示' : '统一数据验证'}</strong></div><div className="topbar-actions"><button className="agent-toggle" onClick={() => navigate(page === 'paper' ? 'data' : 'paper')}>{page === 'paper' ? '数据验证' : '返回创作纸'}</button><span className={connected ? 'connection' : 'connection offline'}><span className="status-dot" />{connected ? '本机服务已连接' : '服务未连接 · 正在重连'}</span>{page === 'paper' && <button className="agent-toggle" aria-pressed={agentOpen} onClick={() => setAgentOpen(open => !open)}>{agentOpen ? '收起助手' : '展开助手'} <span>◧</span></button>}</div></header>
+      <nav className="workspace-navigation" aria-label="主要功能"><a href="#wiki" aria-current={page === 'wiki' ? 'page' : undefined}>我的世界 / Wiki</a><a href="#data" aria-current={page === 'data' ? 'page' : undefined}>数据验证</a><a href="#paper" aria-current={page === 'paper' ? 'page' : undefined}>创作纸演示</a></nav>
+      {updateAvailable && <div className="web-update" role="status"><span>页面已有新版本。请先保存正在编辑的内容，再刷新以使用新功能。</span><button onClick={() => location.reload()}>刷新使用新版</button></div>}
       <div className="stage-banner"><span className="banner-index">S1.3</span><span>手工世界、Wiki 与空间资料</span><span className="banner-detail">非空文件夹删除待确认，演示聊天仍为固定回复</span></div>
       {!connected && snapshot && <div className="connection-warning" role="status">本机服务连接已断开。未保存文字仍保留在当前页面；重连成功后可继续保存。</div>}
-      {snapshot ? <><main hidden={page !== 'paper'} className={`workspace ${!agentOpen ? 'agent-closed' : ''}`}><div className="paper-workspace"><section className="stage-entry" aria-label="阶段入口"><div><span className="eyebrow">已开放的演示</span><h2>S1.2 · 统一数据与修改记录</h2><p>查看字段、关系和修改记录，验证整体保存。</p></div><a className="stage-entry-link" href="#data">进入 S1.2 数据验证 <span aria-hidden="true">→</span></a><a className="stage-entry-link" href="#wiki">进入手工 Wiki <span aria-hidden="true">→</span></a><p className="stage-next">手工创建世界、字段、正文和空间资料；共创能力将在后续接入。</p></section><DocumentPanel document={snapshot.document} /></div>{agentOpen && <AgentPanel snapshot={snapshot} connected={connected} />}</main>{page === 'data' && <DataWorkbench />}<main hidden={page !== 'wiki'}><WikiWorkbench /></main></> : <main className="loading-state"><div className="welcome-symbol">✳</div><h1>正在打开工作台</h1><p>{error || '正在读取本机保存的内容…'}</p></main>}
+      <main hidden={page !== 'paper'} className={`workspace ${!agentOpen ? 'agent-closed' : ''}`}>{snapshot ? <><div className="paper-workspace"><section className="stage-entry" aria-label="阶段入口"><div><span className="eyebrow">组件演示与数据检查</span><h2>创作纸演示</h2><p>编辑器和演示聊天保留在这里，真实世界在“我的世界 / Wiki”。</p></div><a className="stage-entry-link" href="#wiki">进入手工 Wiki <span aria-hidden="true">→</span></a><a className="stage-entry-link" href="#data">进入 S1.2 数据验证 <span aria-hidden="true">→</span></a></section><DocumentPanel document={snapshot.document} /></div>{agentOpen && <AgentPanel snapshot={snapshot} connected={connected} />}</> : <div className="loading-state"><h1>正在打开创作纸</h1><p>{error || '正在读取本机保存的演示内容…'}</p></div>}</main>
+      {page === 'data' && <DataWorkbench />}
+      <main hidden={page !== 'wiki'}><WikiWorkbench /></main>
     </div>
   </div>;
 }

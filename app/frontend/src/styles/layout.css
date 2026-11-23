@@ -2,6 +2,13 @@
   min-width: 0;
 }
 
+.workspace-navigation { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--color-paper); }
+.workspace-navigation a { display: inline-flex; justify-content: center; padding: 9px 12px; color: var(--color-accent); text-decoration: none; font-size: 13px; border-radius: 5px; }
+.workspace-navigation a[aria-current="page"] { background: #dce6d7; font-weight: 600; }
+.web-update { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 18px; color: #624b25; background: #f6e8c8; font-size: 13px; }
+.web-update button { background: var(--color-accent); color: white; border-radius: 4px; padding: 9px 12px; }
+@media (max-width:720px) { .workspace-navigation { gap: 3px; padding: 8px; } .workspace-navigation a { flex: 1; padding: 9px 5px; font-size: 12px; } }
+
 .stage-entry {
   margin: 26px 38px 0;
   padding: 19px 22px;
