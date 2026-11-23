@@ -1,0 +1,102 @@
+.data-workbench {
+  padding: 32px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.data-workbench h1 {
+  font-size: 27px;
+  font-weight: 500;
+}
+
+.data-workbench h2 {
+  font-size: 17px;
+  margin-top: 30px;
+}
+
+.data-workbench p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #6b7763;
+}
+
+.data-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.data-actions button {
+  padding: 10px 14px;
+  background: var(--color-accent);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.data-message {
+  min-height: 25px;
+}
+
+.data-summary {
+  padding: 14px;
+  background: #e8eddf;
+  font-size: 13px;
+}
+
+.data-scroll {
+  overflow: auto;
+}
+
+.data-workbench table {
+  border-collapse: collapse;
+  width: 100%;
+  background: #fffdf8;
+  font-size: 12px;
+}
+
+.data-workbench td,.data-workbench th {
+  padding: 10px;
+  border: 1px solid #dce2d3;
+  text-align: left;
+}
+
+.data-workbench details {
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid #dce2d3;
+  background: #fffdf8;
+  overflow-wrap: anywhere;
+}
+
+.data-workbench summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.data-workbench small {
+  font-size: 10px;
+  color: #8b9681;
+}
+
+.data-workbench pre {
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.data-workbench dl>div {
+  display: flex;
+  gap: 15px;
+  font-size: 12px;
+  margin: 10px 0;
+}
+
+.data-workbench dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.data-workbench dt {
+  min-width: 70px;
+}

@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"], "types": ["node"], "rootDir": "..", "outDir": "../dist/api",
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["./**/*.ts", "../contracts/**/*.ts"]
+}

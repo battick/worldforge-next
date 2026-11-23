@@ -1,0 +1,127 @@
+@import '@milkdown/kit/prose/view/style/prosemirror.css';
+
+.milkdown .editor,.markdown-body {
+  padding: 36px 39px 45px;
+  min-height: 590px;
+  font-size: 13px;
+  line-height: 1.95;
+  outline: none;
+  color: #53604e;
+  overflow-wrap: anywhere;
+}
+
+.milkdown .editor h1,.markdown-body h1 {
+  font-family: Georgia,'Songti SC','SimSun',serif;
+  font-size: 25px;
+  font-weight: 500;
+  color: #35452e;
+  letter-spacing: 1px;
+  margin: 0 0 17px;
+}
+
+.milkdown .editor h2,.markdown-body h2 {
+  font-size: 16px;
+  font-weight: 500;
+  color: #44583c;
+  margin: 28px 0 14px;
+  border-bottom: 1px solid #eceee4;
+  padding-bottom: 13px;
+}
+
+.milkdown .editor h3,.markdown-body h3 {
+  font-size: 14px;
+}
+
+.milkdown .editor p,.markdown-body p {
+  margin: 12px 0;
+}
+
+.milkdown .editor ul,.markdown-body ul {
+  padding-left: 21px;
+}
+
+.milkdown .editor li,.markdown-body li {
+  padding-left: 5px;
+  margin: 3px 0;
+}
+
+.milkdown .editor blockquote,.markdown-body blockquote {
+  border-left: 2px solid #a7b294;
+  margin: 23px 0;
+  padding: 2px 16px;
+  background: #f2f4eb;
+  color: #8a937d;
+  font-size: 11px;
+}
+
+.milkdown .editor blockquote p,.markdown-body blockquote p {
+  margin: 8px 0;
+}
+
+.milkdown .editor strong,.markdown-body strong {
+  color: #476237;
+}
+
+.milkdown .editor table,.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  margin: 18px 0;
+}
+
+.milkdown .editor th,.milkdown .editor td,.markdown-body th,.markdown-body td {
+  padding: 8px 12px;
+  border: 1px solid #e1e6d9;
+  text-align: left;
+}
+
+.milkdown .editor th,.markdown-body th {
+  background: #f0f3e9;
+  font-weight: 500;
+}
+
+.milkdown .editor pre,.markdown-body pre {
+  background: #f0f2ea;
+  border: 1px solid #e2e6d9;
+  border-radius: 4px;
+  padding: 12px 14px;
+  white-space: pre-wrap;
+  font-size: 11px;
+}
+
+.milkdown .editor a,.markdown-body a {
+  color: #608354;
+  text-underline-offset: 3px;
+}
+
+.milkdown .editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+.source-editor {
+  display: block;
+  width: 100%;
+  min-height: 620px;
+  resize: vertical;
+  outline: none;
+  border: 0;
+  padding: 30px;
+  font-family: Consolas,'Microsoft YaHei',monospace;
+  font-size: 12px;
+  line-height: 1.9;
+  background: var(--paper);
+  color: #53604e;
+}
+
+@media (max-width:1190px) {
+  .milkdown .editor,.markdown-body {
+    padding: 29px 27px;
+  }
+}
+
+@media (max-width:720px) {
+  .source-editor {
+    min-height: 500px;
+  }
+}

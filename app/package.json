@@ -1,0 +1,50 @@
+{
+  "name": "worldforge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "scripts": {
+    "dev": "node scripts/run.mjs dev",
+    "dev:api": "tsx backend/server/index.ts",
+    "dev:web": "vite --config frontend/vite.config.ts",
+    "build": "npm run check && npm run build:api && npm run build:web && npm run api:export",
+    "build:api": "tsc -p backend/tsconfig.json",
+    "build:web": "tsc -p frontend/tsconfig.json && vite build --config frontend/vite.config.ts",
+    "start": "node scripts/run.mjs start",
+    "start:api": "node dist/api/backend/server/index.js",
+    "start:web": "vite preview --config frontend/vite.config.ts",
+    "check": "tsc --noEmit && tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json",
+    "api:export": "tsx scripts/export-api.ts",
+    "api:check": "tsx scripts/check-api-docs.ts",
+    "api:check:docs": "tsx scripts/check-api-docs.ts --with-docs",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@assistant-ui/react": "0.15.37",
+    "@langchain/langgraph": "1.7.5",
+    "@langchain/langgraph-checkpoint-sqlite": "1.1.1",
+    "@milkdown/kit": "7.23.0",
+    "@milkdown/react": "7.23.0",
+    "better-sqlite3": "12.11.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "7.3.8"
+  }
+}

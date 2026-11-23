@@ -1,0 +1,19 @@
+:root {
+  --font-body: "Segoe UI", "Microsoft YaHei", sans-serif;
+  --color-text: #333b37;
+  --color-bg: #f5f4ef;
+  --color-accent: #365741;
+  --color-border: #e6e7df;
+  --color-paper: #fdfdf9;
+}
+
+:root {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-synthesis: none;
+  --green: var(--color-accent);
+  --muted: #838980;
+  --line: var(--color-border);
+  --paper: var(--color-paper);
+}

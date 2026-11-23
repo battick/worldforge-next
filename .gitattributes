@@ -1,0 +1,8 @@
+# Preserve exact file bytes for implementation snapshot byte counts and SHA-256.
+* -text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
