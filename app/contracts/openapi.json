@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "WorldForge 本机数据接口",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "前端替换时保持本接口；支持手工世界、Wiki和空间资料，Agent仍为固定回复演示。"
   },
   "servers": [
@@ -1014,7 +1014,10 @@
                                     "summary",
                                     "cover",
                                     "world-status",
-                                    "navigation-folder"
+                                    "navigation-folder",
+                                    "relation-definition",
+                                    "relation-fields",
+                                    "relation-type"
                                   ]
                                 }
                               },
@@ -1160,6 +1163,9 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
+                              },
+                              "space": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -1301,7 +1307,8 @@
                             "type": "string",
                             "enum": [
                               "object",
-                              "resource"
+                              "resource",
+                              "definition"
                             ]
                           }
                         },
@@ -1538,7 +1545,10 @@
                                       "summary",
                                       "cover",
                                       "world-status",
-                                      "navigation-folder"
+                                      "navigation-folder",
+                                      "relation-definition",
+                                      "relation-fields",
+                                      "relation-type"
                                     ]
                                   }
                                 },
@@ -1857,6 +1867,9 @@
                             "content": {
                               "type": "string",
                               "maxLength": 1400000
+                            },
+                            "space": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -2157,7 +2170,10 @@
                                             "summary",
                                             "cover",
                                             "world-status",
-                                            "navigation-folder"
+                                            "navigation-folder",
+                                            "relation-definition",
+                                            "relation-fields",
+                                            "relation-type"
                                           ]
                                         }
                                       },
@@ -2476,6 +2492,9 @@
                                   "content": {
                                     "type": "string",
                                     "maxLength": 1400000
+                                  },
+                                  "space": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [

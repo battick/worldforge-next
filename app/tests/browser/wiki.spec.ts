@@ -23,15 +23,15 @@ test('manual world, entry editor, fields, source space and stable references sur
   await active.getByRole('button', { name: '正文源码', exact: true }).click();
   const markdown = `# 灯塔笔记\n\n真实正文、**粗体**和[[missing-id|失踪的船]]。\n\n[[${worldId}|世界草案]]\n\n[无效引用](#entry/%)\n\n\`\`\`txt\n[[code-only|代码中的双链]]\n\`\`\``;
   await active.getByRole('textbox', { name: '条目Markdown源码', exact: true }).fill(markdown);
-  await active.getByRole('button', { name: '保存条目正文', exact: true }).click();
-  await expect(active.getByRole('status').filter({ hasText: '正文已保存' })).toBeVisible();
+  await active.getByRole('button', { name: '保存条目', exact: true }).click();
+  await expect(active.getByRole('status').filter({ hasText: '条目已保存' })).toBeVisible();
   await active.getByRole('button', { name: '编辑正文', exact: true }).click();
   await expect(active.locator('.milkdown .ProseMirror')).toContainText('灯塔笔记');
   const rich = active.locator('.milkdown .ProseMirror');
   await rich.click(); await rich.press('Control+End'); await rich.press('ArrowDown'); await rich.press('Enter');
   await rich.pressSequentially('编辑器补充的文字');
-  await active.getByRole('button', { name: '保存条目正文', exact: true }).click();
-  await expect(active.getByRole('status').filter({ hasText: '正文已保存' })).toBeVisible();
+  await active.getByRole('button', { name: '保存条目', exact: true }).click();
+  await expect(active.getByRole('status').filter({ hasText: '条目已保存' })).toBeVisible();
   await active.getByRole('button', { name: '阅读正文', exact: true }).click();
   await expect(active.locator('.wiki-markdown')).toContainText('编辑器补充的文字');
   await expect(active.locator('.wiki-missing-link').filter({ hasText: '无效引用' })).toBeVisible();
@@ -48,8 +48,9 @@ test('manual world, entry editor, fields, source space and stable references sur
   await page.mouse.move(grip!.x + 5, grip!.y + 5); await page.mouse.down();
   await page.mouse.move(grip!.x - 95, grip!.y + 65); await page.mouse.up();
   expect((await preview.boundingBox())!.x).toBeLessThan(start!.x - 50);
+  await active.getByRole('button', { name: '编辑条目', exact: true }).click();
   await active.getByRole('textbox', { name: '名称 第1项', exact: true }).fill('浏览器灯塔改名');
-  await active.getByRole('button', { name: '保存字段', exact: true }).click();
+  await active.getByRole('button', { name: '保存条目', exact: true }).click();
   await expect(active.getByRole('heading', { name: '浏览器灯塔改名', exact: true })).toBeVisible();
   await expect(preview).toBeVisible();
   await preview.getByRole('button', { name: '取消预览浏览器雾海', exact: true }).click();
@@ -125,8 +126,8 @@ test('lost save responses retry the same command; conflicts and world changes pr
     { type: 'object.update', id, set: { [bodyId]: [{ resource: resource.id, version: resource.version + 1 }] } },
   ] } });
   expect(response.ok()).toBe(true);
-  await active.getByRole('button', { name: '保存条目正文', exact: true }).click();
-  await expect(active.getByRole('alert')).toContainText('当前文字保留');
+  await active.getByRole('button', { name: '保存条目', exact: true }).click();
+  await expect(active.getByRole('alert')).toContainText('正文和字段输入均已保留');
   await expect(active.getByRole('textbox', { name: '条目Markdown源码', exact: true })).toHaveValue('我正在写的本地草稿');
   const after: WorkspaceView = await (await request.get('/api/core/snapshot')).json();
   expect(after.state.resourceVersions.find(r => r.id === resource.id && r.version === resource.version + 1)!.content).toBe(encodeText('另一个窗口已保存的内容'));
@@ -161,7 +162,7 @@ test('position operations modify fields, preserve other locations and keep draft
   await expect(wiki.locator('.wiki-entry-actions')).toContainText('当前位置字段：历史');
   await active.getByRole('button', { name: '正文源码', exact: true }).click();
   await active.getByRole('textbox', { name: '条目Markdown源码', exact: true }).fill('尚未保存的草稿');
-  await page.getByRole('button', { name: '世界蓝图与详细编辑', exact: true }).click();
+  await page.getByRole('button', { name: '世界蓝图与详细编辑', exact: true }).click({ modifiers: ['Control'] });
   await page.getByRole('tab', { name: '双位置条目', exact: true }).click();
   await expect(active.getByRole('textbox', { name: '条目Markdown源码', exact: true })).toHaveValue('尚未保存的草稿');
 });

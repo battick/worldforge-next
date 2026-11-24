@@ -5,13 +5,14 @@ import { createPortal } from 'react-dom';
 import type { WorkspaceState } from '../../contracts/workspace.ts';
 import { bodyRefs, resourceText, titleOf } from '../../client/wiki.ts';
 
+export type OpenEntry = (id: string, newTab?: boolean) => void;
 export const WikiPreviewContext = createContext<((id: string) => void) | undefined>(undefined);
 function excerpt(state: WorkspaceState, id: string) {
   const object = state.objects.find(o => o.id === id), body = object && bodyRefs(state, object)[0];
   try { return body ? resourceText(state, body.resource, body.version) : '还没有正文，可打开查看字段。'; }
   catch { return '正文资源暂不可读，可打开查看字段或下载原件。'; }
 }
-function WikiLink({ id, state, onOpen, children }: { id: string; state: WorkspaceState; onOpen(id: string): void; children: ReactNode }) {
+function WikiLink({ id, state, onOpen, children }: { id: string; state: WorkspaceState; onOpen: OpenEntry; children: ReactNode }) {
   const [hover, setHover] = useState(false), anchor = useRef<HTMLButtonElement>(null), card = useRef<HTMLElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), pin = useContext(WikiPreviewContext);
   const keep = () => { clearTimeout(timer.current); setHover(true); };
@@ -24,11 +25,11 @@ function WikiLink({ id, state, onOpen, children }: { id: string; state: Workspac
     popup.style.top = `${Math.max(12, rect.bottom + popup.offsetHeight + 20 < innerHeight ? rect.bottom + 8 : rect.top - popup.offsetHeight - 8)}px`;
   }, [hover]);
   const object = state.objects.find(o => o.id === id)!;
-  return <><button ref={anchor} type="button" className="wiki-inline-link" title={titleOf(state, object)} onMouseEnter={keep} onMouseLeave={leave} onFocus={keep} onBlur={leave} onClick={() => { setHover(false); onOpen(id); }}>{children}</button>
+  return <><button ref={anchor} type="button" className="wiki-inline-link" title={titleOf(state, object)} onMouseEnter={keep} onMouseLeave={leave} onFocus={keep} onBlur={leave} onClick={e => { setHover(false); onOpen(id, e.ctrlKey || e.metaKey); }} onPointerDown={e => { if (e.button === 1) { e.preventDefault(); setHover(false); onOpen(id, true); } }} onAuxClick={e => { if (e.button === 1) e.preventDefault(); }}>{children}</button>
     {hover && createPortal(<aside ref={card} className="wiki-hover-preview" aria-label="条目悬停预览" onMouseEnter={keep} onMouseLeave={leave} onFocus={keep} onBlur={leave} onKeyDown={e => { if (e.key === 'Escape') setHover(false); }}><div className="wiki-preview-heading"><button onClick={() => { setHover(false); onOpen(id); }}>{titleOf(state, object)}</button>{pin && <button onClick={() => { pin(id); setHover(false); }}>固定预览</button>}</div><WikiMarkdown text={excerpt(state, id)} state={state} onOpen={onOpen} /></aside>, document.body)}
   </>;
 }
-export function WikiPreviewCard({ id, index, state, onOpen, onClose }: { id: string; index: number; state: WorkspaceState; onOpen(id: string): void; onClose(): void }) {
+export function WikiPreviewCard({ id, index, state, onOpen, onClose }: { id: string; index: number; state: WorkspaceState; onOpen: OpenEntry; onClose(): void }) {
   const card = useRef<HTMLElement>(null), drag = useRef<{ x: number; y: number; left: number; top: number } | undefined>(undefined);
   useLayoutEffect(() => {
     if (!card.current) return;
@@ -66,7 +67,7 @@ function wikiLinks() {
     walk(tree as Node);
   };
 }
-export function WikiMarkdown({ text, state, onOpen }: { text: string; state: WorkspaceState; onOpen(id: string): void }) {
+export function WikiMarkdown({ text, state, onOpen }: { text: string; state: WorkspaceState; onOpen: OpenEntry }) {
   return <article className="markdown-body wiki-markdown"><ReactMarkdown remarkPlugins={[remarkGfm, wikiLinks]} skipHtml components={{
     img: ({ alt }) => <span className="image-placeholder">[图片：{alt || '未命名'}]</span>,
     a: ({ href, children }) => {

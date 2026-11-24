@@ -55,6 +55,7 @@
 .wiki-workbench fieldset { border: 1px solid var(--color-border); padding: 12px; margin: 12px 0; min-width: 0; border-radius: 4px; }
 .wiki-field-value { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .wiki-field-value input, .wiki-field-value textarea, .wiki-field-value select { flex: 1; }
+.wiki-field-value > span { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .wiki-field-value > button { flex-shrink: 0; font-size: 11px; }
 .wiki-fields dl, .wiki-fields dd { font-size: 11px; overflow-wrap: anywhere; }
 .wiki-fields dl > div { padding: 6px 0; }

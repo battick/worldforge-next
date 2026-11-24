@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { AppError } from '../core/errors.ts';
+import { synchronizeRelations } from '../core/relations.ts';
+import { resourceMembership } from './resource-space.ts';
 import { canonical, commandSchema, kindOf, objectVersion, roles, systemDefinitions, validateState, type ContentObject, type Definition, type Difference, type HistoryRecord, type Receipt, type ReferenceIndex, type WorkspaceCommand, type WorkspaceState } from '../core/model.ts';
 
 export type CommitStage = 'afterRows' | 'beforeHistory' | 'afterCommit';
@@ -36,11 +38,11 @@ export class WorkspaceRepository {
   read(): WorkspaceState {
     return this.db.transaction(() => {
       const rows = <T>(table: string) => (this.db.prepare(`SELECT data FROM ${table} ORDER BY id`).all() as { data: string }[]).map(row => JSON.parse(row.data) as T);
-      return {
+      return resourceMembership({
         revision: (this.db.prepare('SELECT revision FROM core_meta WHERE id=1').get() as { revision: number }).revision,
         worlds: rows<WorkspaceState['worlds'][number]>('core_worlds'), definitions: rows<Definition>('core_definitions'), objects: rows<ContentObject>('core_objects'),
         resources: rows<WorkspaceState['resources'][number]>('core_resources'), resourceVersions: rows<WorkspaceState['resourceVersions'][number]>('core_resource_versions'),
-      };
+      }, this.history());
     })();
   }
 
@@ -125,12 +127,13 @@ export class WorkspaceRepository {
           if (bytes.toString('base64') !== change.content || bytes.length > 1_000_000) invalid('资源内容不是有效Base64，或超过本阶段1MB上限。');
           if (!previous && state.resourceVersions.some(v => v.id === change.id)) invalid('历史资源身份不可重新使用。');
           const version = (previous?.version ?? 0) + 1;
-          upsert(state.resources, { id: change.id, worldId: change.worldId, path: change.path, version });
+          upsert(state.resources, { id: change.id, worldId: change.worldId, path: change.path, version, space: change.space ?? previous?.space ?? true });
           state.resourceVersions.push({ id: change.id, version, mime: change.mime, content: change.content, hash: createHash('sha256').update(bytes).digest('hex') }); break;
         }
         case 'resource.delete': remove(state.resources, change.id); break;
       }
     }
+    for (const id of synchronizeRelations(state)) touch.add(id);
     for (const id of touch) {
       const object = state.objects.find(o => o.id === id)!;
       const old = before.objects.find(o => o.id === id);

@@ -13,7 +13,7 @@ export function makeExample(baseRevision: number) {
     d('name', '名称', 'text', ['title']), d('score', '等级', 'number'), d('local', '魔力体系', 'text', ['classification'], ids.worldA!),
     d('source', '参与者', 'reference', ['source']), d('target', '所属地点', 'reference', ['target']), d('body', '正文', 'resource', ['body']),
     obj('alice', '艾琳', 'worldA', 3), obj('bob', '博恩', 'worldA', 4), obj('port', '白鹭港', 'worldA', 8), obj('other', '另一个世界的港口', 'worldB', 12),
-    { type: 'resource.put', id: ids.file!, worldId: ids.worldA!, path: 'wiki/港口.md', mime: 'text/markdown', content },
+    { type: 'resource.put', id: ids.file!, worldId: ids.worldA!, path: 'wiki/港口.md', space: false, mime: 'text/markdown', content },
     { type: 'object.update', id: ids.worldA!, set: { [ids.name!]: ['雾海'], [ids.local!]: ['灯火'] } },
     { type: 'object.update', id: ids.worldB!, set: { [ids.name!]: ['星原'] } },
     { type: 'object.create', id: ids.relation!, worldId: ids.worldA!, kind: 'relation', fields: { [ids.source!]: [{ ref: ids.alice! }, { ref: ids.bob! }], [ids.target!]: [{ ref: ids.port! }], [ids.name!]: ['共同驻守'], [ids.body!]: [{ resource: ids.file!, version: 1 }] } },
