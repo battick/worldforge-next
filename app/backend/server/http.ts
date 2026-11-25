@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AppError } from '../core/errors.ts';
 import { Store } from './store.ts';
+import { Collaboration } from './collaboration.ts';
 import { DemoTasks } from './tasks.ts';
 import { WorkspaceRepository } from './workspace.ts';
 import { makeExample } from '../core/example.ts';
@@ -31,6 +32,7 @@ export async function createApplication(options: { dataDir: string; tickMs?: num
   const store = new Store(options.dataDir);
   const tasks = new DemoTasks(store, options.tickMs);
   const workspace = new WorkspaceRepository(store.db);
+  const collaboration = new Collaboration(store.db, workspace);
   const streams = new Set<ServerResponse>();
   let closing = false;
   const allowedOrigins = new Set(options.frontendOrigins ?? []);
@@ -63,6 +65,15 @@ export async function createApplication(options: { dataDir: string; tickMs?: num
       }
       if (url.pathname === '/api/openapi.json' && req.method === 'GET') { json(res, 200, openApiDocument); return; }
       if (url.pathname === '/api/health' && req.method === 'GET') { json(res, 200, { status: 'ok', stage: 'S1.3', model: 'demo', apiVersion: API_VERSION }); return; }
+      if (url.pathname === '/api/agent/state' && req.method === 'GET') { json(res, 200, collaboration.read()); return; }
+      if (url.pathname === '/api/agent/actions' && req.method === 'POST') { json(res, 200, collaboration.action(await body(req, 2_000_000))); return; }
+      if (url.pathname === '/api/agent/events' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+        const send = () => { if (!res.writableEnded && !res.destroyed) { const state = collaboration.read(); res.write(`id: ${state.eventId}\nevent: collaboration\ndata: ${JSON.stringify(state)}\n\n`); } };
+        streams.add(res); collaboration.events.on('change', send); send();
+        const beat = setInterval(() => res.write(': heartbeat\n\n'), 15000);
+        res.on('close', () => { clearInterval(beat); collaboration.events.off('change', send); streams.delete(res); }); return;
+      }
       if (url.pathname === '/api/core/snapshot' && req.method === 'GET') {
         json(res, 200, store.db.transaction(() => ({ state: workspace.read(), history: workspace.history(), references: workspace.references() }))()); return;
       }
@@ -110,11 +121,12 @@ export async function createApplication(options: { dataDir: string; tickMs?: num
     }
   });
   return {
-    server, store, workspace,
+    server, store, workspace, collaboration,
     async close() {
       if (closing) return;
       closing = true;
       for (const stream of streams) stream.end();
+      await collaboration.stop();
       await tasks.stop();
       server.closeAllConnections();
       if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

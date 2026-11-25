@@ -12,7 +12,7 @@ import type { Change, ContentObject, DefinitionInput, WorkspaceState } from '../
 async function fixture() {
   const dir = await mkdtemp(path.join(tmpdir(), 'worldforge-review-fixes-'));
   const store = new Store(dir), repo = new WorkspaceRepository(store.db);
-  return { store, repo, async close() { store.close(); await rm(dir, { recursive: true }); } };
+  return { store, repo, async close() { store.close(); await rm(dir, { recursive: true, maxRetries: 5, retryDelay: 50 }); } };
 }
 const fields = (object: ContentObject) => Object.fromEntries(Object.entries(object.fields).filter(([id]) => !id.startsWith('sys.')));
 function world(repo: WorkspaceRepository) { const result = newWorld(repo.read(), '界', ''); repo.execute(result.command); return result.worldId; }

@@ -1,3 +1,4 @@
+import type { AgentAction, CollaborationView } from '../contracts/collaboration.ts';
 import { API } from '../contracts/api.ts';
 import type { Health, TaskAccepted } from '../contracts/api.ts';
 import type { ApiErrorBody, DemoDocument, Snapshot } from '../contracts/demo.ts';
@@ -21,6 +22,12 @@ export function createWorldForgeClient(baseUrl = '', fetcher: typeof fetch = glo
     return result as T;
   }
   return {
+    collaboration: () => request<CollaborationView>(API.collaboration),
+    agentAction: (action: AgentAction) => request<CollaborationView>(API.agentActions, 'POST', action),
+    subscribeCollaboration(onState: (view: CollaborationView) => void, onConnection: (connected: boolean) => void = () => {}) {
+      const events = new EventSource(url(API.agentEvents));
+      events.addEventListener('collaboration', event => { onState(JSON.parse(event.data)); onConnection(true); }); events.onerror = () => onConnection(false); return () => events.close();
+    },
     health: () => request<Health>(API.health),
     snapshot: () => request<Snapshot>(API.snapshot),
     save: (markdown: string, version: number) => request<DemoDocument>(API.document, 'PUT', { markdown, version }),

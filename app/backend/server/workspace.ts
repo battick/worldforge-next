@@ -6,7 +6,7 @@ import { resourceMembership } from './resource-space.ts';
 import { canonical, commandSchema, kindOf, objectVersion, roles, systemDefinitions, validateState, type ContentObject, type Definition, type Difference, type HistoryRecord, type Receipt, type ReferenceIndex, type WorkspaceCommand, type WorkspaceState } from '../core/model.ts';
 
 export type CommitStage = 'afterRows' | 'beforeHistory' | 'afterCommit';
-export interface PreparedCommand { command: WorkspaceCommand; fingerprint: string; state: WorkspaceState; changes: Difference[]; references: ReferenceIndex[] }
+export interface PreparedCommand { command: WorkspaceCommand; fingerprint: string; state: WorkspaceState; changes: Difference[]; references: ReferenceIndex[]; identity?: { actor: 'agent'; taskId: string } }
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 function invalid(message: string): never { throw new AppError('MODEL_INVALID', message, 422); }
 
@@ -48,17 +48,19 @@ export class WorkspaceRepository {
 
   history(): HistoryRecord[] { return (this.db.prepare('SELECT data FROM core_history ORDER BY revision DESC').all() as { data: string }[]).map(row => JSON.parse(row.data)); }
   references(): ReferenceIndex[] { return this.db.prepare('SELECT * FROM core_references ORDER BY ownerId,fieldId,targetId').all() as ReferenceIndex[]; }
-  private prior(command: WorkspaceCommand, fingerprint: string): Receipt | undefined {
-    const row = this.db.prepare('SELECT revision, fingerprint FROM core_history WHERE operationId=?').get(command.operationId) as { revision: number; fingerprint: string } | undefined;
+  private prior(command: WorkspaceCommand, fingerprint: string, identity?: { actor: 'agent'; taskId: string }): Receipt | undefined {
+    const row = this.db.prepare('SELECT revision, fingerprint, data FROM core_history WHERE operationId=?').get(command.operationId) as { revision: number; fingerprint: string; data: string } | undefined;
     if (!row) return;
+    const record = JSON.parse(row.data) as HistoryRecord;
+    if (record.actor !== (identity?.actor ?? 'user') || record.taskId !== identity?.taskId) throw new AppError('OPERATION_CONFLICT', '操作编号已属于其他执行身份或任务。', 409);
     if (row.fingerprint !== fingerprint) throw new AppError('OPERATION_CONFLICT', '同一操作编号已经用于不同的修改。', 409);
     return { operationId: command.operationId, revision: row.revision };
   }
 
-  prepare(input: unknown): PreparedCommand | Receipt {
+  prepare(input: unknown, identity?: { actor: 'agent'; taskId: string }): PreparedCommand | Receipt {
     const command = commandSchema.parse(input);
     const fingerprint = hash(canonical(command));
-    const prior = this.prior(command, fingerprint);
+    const prior = this.prior(command, fingerprint, identity);
     if (prior) return prior;
     const before = this.read();
     if (before.revision !== command.baseRevision) throw new AppError('VERSION_CONFLICT', '资料已改变，请读取当前版本后重新准备修改。', 409);
@@ -151,7 +153,7 @@ export class WorkspaceRepository {
       }
     }
     for (const change of changes) if (change.before === null && change.collection !== 'worlds' && this.db.prepare('SELECT 1 FROM core_identities WHERE id=?').get(change.id)) invalid('历史身份不可重新使用。');
-    const result = { command, fingerprint, state, changes, references };
+    const result = { command, fingerprint, state, changes, references, identity };
     const freeze = (value: unknown) => {
       if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); }
     };
@@ -163,9 +165,9 @@ export class WorkspaceRepository {
   commit(prepared: PreparedCommand | Receipt): Receipt {
     if (!('command' in prepared)) return prepared;
     if (!this.prepared.has(prepared)) invalid('准备结果不属于当前修改入口，请重新准备。');
-    const { command, fingerprint, state, changes, references } = prepared;
+    const { command, fingerprint, state, changes, references, identity } = prepared;
     const result = this.db.transaction(() => {
-      const prior = this.prior(command, fingerprint);
+      const prior = this.prior(command, fingerprint, identity);
       if (prior) return prior;
       const current = (this.db.prepare('SELECT revision FROM core_meta WHERE id=1').get() as { revision: number }).revision;
       if (current !== command.baseRevision) throw new AppError('VERSION_CONFLICT', '准备期间资料已更新，修改没有应用。', 409);
@@ -181,7 +183,7 @@ export class WorkspaceRepository {
       for (const ref of references) this.db.prepare('INSERT OR IGNORE INTO core_references VALUES (?,?,?,?)').run(ref.ownerId, ref.fieldId, ref.targetId, ref.kind);
       this.fault?.('beforeHistory');
       const revision = current + 1;
-      const record: HistoryRecord = { operationId: command.operationId, revision, baseRevision: current, actor: 'user', createdAt: new Date().toISOString(), changes };
+      const record: HistoryRecord = { operationId: command.operationId, revision, baseRevision: current, actor: identity?.actor ?? 'user', ...(identity ? { taskId: identity.taskId } : {}), createdAt: new Date().toISOString(), changes };
       this.db.prepare('INSERT INTO core_history VALUES (?,?,?,?)').run(revision, command.operationId, fingerprint, JSON.stringify(record));
       this.db.prepare('UPDATE core_meta SET revision=? WHERE id=1').run(revision);
       return { operationId: command.operationId, revision };

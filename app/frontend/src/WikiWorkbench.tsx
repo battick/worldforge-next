@@ -30,7 +30,7 @@ export function WikiWorkbench() {
   useDirtyGuard(undefined, () => Boolean(pending.current));
   const hasDirty = () => Object.values(handles.current).some(ref => ref?.dirty());
   const load = async () => { const next = await api.workspace(); setView(next); return next; };
-  useEffect(() => { load().catch(e => setError(e.message)); }, []);
+  useEffect(() => { load().catch(e => setError(e.message)); return api.subscribeCollaboration(view => { if (view.tasks.some(t => t.status === 'completed' && t.receipt)) void load().catch(e => setError(e.message)); }); }, []);
   const route = (state: WorkspaceState, id: string, newTab = false) => {
     const object = state.objects.find(o => o.id === id); if (!object) { setError('引用的条目不存在，不会自动创建。'); return; }
     if (worldId && object.worldId !== worldId && hasDirty() && !window.confirm('其他世界有未保存内容，确定切换并放弃这些修改吗？')) { history.replaceState(null, '', `#wiki/${worldId}/${selected || worldId}`); return; }

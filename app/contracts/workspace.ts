@@ -32,7 +32,7 @@ export type Change =
 export interface WorkspaceCommand { operationId: string; baseRevision: number; worldId?: string; changes: Change[] }
 export interface Receipt { operationId: string; revision: number }
 export interface Difference { collection: 'worlds' | 'definitions' | 'objects' | 'resources'; id: string; before: unknown; after: unknown }
-export interface HistoryRecord extends Receipt { baseRevision: number; actor: 'user'; createdAt: string; changes: Difference[] }
+export interface HistoryRecord extends Receipt { baseRevision: number; actor: 'user' | 'agent'; taskId?: string; createdAt: string; changes: Difference[] }
 export interface ReferenceIndex { ownerId: string; fieldId: string; targetId: string; kind: 'object' | 'resource' | 'definition' }
 export interface WorkspaceView { state: WorkspaceState; history: HistoryRecord[]; references: ReferenceIndex[] }
 export interface ExampleResponse { ids: Record<string, string>; command: WorkspaceCommand; receipt: Receipt }

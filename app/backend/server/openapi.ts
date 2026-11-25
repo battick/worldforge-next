@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { API_VERSION, API } from '../../contracts/api.ts';
+import { collaborationSchema, agentActionSchema } from './collaboration-schema.ts';
 import { commandSchema, definitionSchema } from '../core/model.ts';
 
 export const documentInput = z.object({ markdown: z.string().max(100_000), version: z.number().int().positive() }).strict();
@@ -10,7 +11,7 @@ const receipt = z.object({ operationId: z.string().uuid(), revision: z.number().
 const difference = z.object({ collection: z.enum(['worlds', 'definitions', 'objects', 'resources']), id: z.string(), before: z.unknown(), after: z.unknown() });
 const workspace = z.object({
   state: z.object({ revision: z.number().int(), worlds: z.array(z.object({ id: z.string(), rootId: z.string() })), definitions: z.array(definitionSchema.extend({ version: z.number().int() })), objects: z.array(z.object({ id: z.string(), worldId: z.string(), fields: z.record(z.string(), z.array(z.unknown())) })), resources: z.array(z.object({ id: z.string(), worldId: z.string(), path: z.string(), version: z.number().int(), space: z.boolean().optional() })), resourceVersions: z.array(z.object({ id: z.string(), version: z.number().int(), mime: z.string(), content: z.string(), hash: z.string() })) }),
-  history: z.array(receipt.extend({ baseRevision: z.number().int(), actor: z.literal('user'), createdAt: z.string(), changes: z.array(difference) })), references: z.array(z.object({ ownerId: z.string(), fieldId: z.string(), targetId: z.string(), kind: z.enum(['object', 'resource', 'definition']) })),
+  history: z.array(receipt.extend({ baseRevision: z.number().int(), actor: z.enum(['user', 'agent']), taskId: z.string().uuid().optional(), createdAt: z.string(), changes: z.array(difference) })), references: z.array(z.object({ ownerId: z.string(), fieldId: z.string(), targetId: z.string(), kind: z.enum(['object', 'resource', 'definition']) })),
 });
 const schema = (value: z.ZodType) => z.toJSONSchema(value, { target: 'draft-2020-12' });
 const content = (value: z.ZodType) => ({ 'application/json': { schema: schema(value) } });
@@ -26,6 +27,9 @@ export const openApiDocument = {
     [API.document]: { put: endpoint('带版本保存创作纸，版本冲突返回409', document, documentInput) },
     [API.messages]: { post: endpoint('开始演示任务', z.object({ taskId: z.string() }), messageInput, 202) },
     '/api/demo/tasks/{id}/resume': { post: { ...endpoint('显式继续原演示任务', z.object({ taskId: z.string() }), undefined, 202), parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }] } },
+    [API.collaboration]: { get: endpoint('读取默认/会话设置、保护和真实准备任务', collaborationSchema) },
+    [API.agentActions]: { post: endpoint('用户调整设置、内容保护与任务授权；准备任务进入服务端统一执行', collaborationSchema, agentActionSchema) },
+    [API.agentEvents]: { get: { summary: 'SSE协作完整快照；事件collaboration，重连核对当前状态，不承诺历史重放', responses: { 200: { description: '当前协作状态', content: { 'text/event-stream': { schema: { type: 'string' } } } }, ...errors } } },
     [API.workspace]: { get: endpoint('一致读取定义、对象、资源、历史与引用', workspace) },
     [API.commands]: { post: endpoint('一次整体应用命令，相同操作编号和负载返回原收据', receipt, commandSchema) },
     [API.example]: { post: endpoint('显式新增虚构样例，不覆盖已有数据', z.object({ ids: z.record(z.string(), z.string()), command: commandSchema, receipt }), undefined, 201) },

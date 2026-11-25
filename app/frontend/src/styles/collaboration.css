@@ -1,0 +1,20 @@
+.collaboration-panel { margin: 20px 32px; padding: 24px; background: var(--color-paper); border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text); }
+.collaboration-heading, .collaboration-protection, .collaboration-session { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.collaboration-heading { justify-content: space-between; }
+.collaboration-panel p { line-height: 1.8; font-size: 13px; }
+.collaboration-panel label { display: block; margin: 12px 0; font-size: 13px; }
+.collaboration-panel select, .collaboration-panel input { display: block; padding: 9px; margin-top: 6px; max-width: 100%; background: var(--color-paper); color: inherit; border: 1px solid var(--color-border); border-radius: 4px; }
+.collaboration-panel button { padding: 8px 12px; margin: 5px 8px 5px 0; border-radius: 4px; background: #e8ecdf; color: var(--color-accent); }
+.collaboration-panel button.button-primary { background: var(--color-accent); color: white; }
+.collaboration-permissions { display: flex; flex-wrap: wrap; gap: 20px; }
+.collaboration-task { border-top: 1px solid var(--color-border); margin-top: 20px; padding-top: 12px; }
+.collaboration-task small { color: #7d8779; }
+.collaboration-protections li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.collaboration-panel details { margin: 16px 0; }
+.collaboration-panel summary { cursor: pointer; }
+@media (max-width: 680px) { .collaboration-panel { margin: 12px; padding: 14px; } .collaboration-panel select { width: 100%; } }
+
+.collaboration-entry { padding: 8px 32px 0; }
+.collaboration-entry > button { padding: 8px 12px; border-radius: 4px; color: var(--color-accent); background: #e8ecdf; }
+
+.collaboration-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; padding: 12px; background: #eef0e6; font: inherit; line-height: 1.7; }
