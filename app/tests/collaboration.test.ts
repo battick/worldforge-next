@@ -10,10 +10,10 @@ import { Collaboration } from '../backend/server/collaboration.ts';
 import { command, newWorld, titleOf } from '../client/wiki.ts';
 import { operations, type AgentTaskStatus, type Policy } from '../contracts/collaboration.ts';
 
-async function fixture(phase?: (id: string, phase: string) => Promise<void>, afterCommit = false) {
+async function fixture(phase?: (id: string, phase: string) => Promise<void>, afterCommit: boolean | 'beforeHistory' = false) {
   const dir = await mkdtemp(path.join(tmpdir(), 'worldforge-collaboration-')); let store = new Store(dir);
   let fault = false;
-  const makeRepository = () => new WorkspaceRepository(store.db, () => {}, stage => { if (afterCommit && fault && stage === 'afterCommit') { fault = false; throw new Error('模拟提交后中断'); } });
+  const makeRepository = () => new WorkspaceRepository(store.db, () => {}, stage => { if (afterCommit && fault && stage === (afterCommit === true ? 'afterCommit' : 'beforeHistory')) { fault = false; throw new Error('模拟一次性保存故障'); } });
   let repo = makeRepository();
   const created = newWorld(repo.read(), '原世界', ''); repo.execute(created.command);
   let service = new Collaboration(store.db, repo, phase);
@@ -130,5 +130,46 @@ test('authorized reading returns only explicit targets and completed reads do no
     f.repo.execute(command(state, f.wid, [{ type: 'object.update', id: f.wid, set: { [field]: ['后来内容'] } }]));
     assert.deepEqual(f.service.authorizedRead(id)[0]!.value, ['原世界']);
     await f.restart(); assert.deepEqual(f.service.authorizedRead(id)[0]!.value, ['原世界']);
+  } finally { await f.close(); }
+});
+
+
+test('transient failure resumes the same plan and original policy, rechecks protection and commits once', async () => {
+  const f = await fixture(undefined, 'beforeHistory'); try {
+    const session = f.session(), before = f.repo.read(); f.fault(); const id = f.enqueue(session, '重试成功');
+    const failed = await f.wait(id, 'failed'); assert.equal(failed.retryable, true); assert.equal(f.repo.read().revision, before.revision);
+    f.service.action({ type: 'policy.update', sessionId: session, expectedVersion: 1, policy: f.policy('deny') });
+    f.service.action({ type: 'protection.set', target: { kind: 'object', id: f.wid }, enabled: true, expectedVersion: 0 });
+    f.control('task.resume', id); await f.wait(id, 'waiting');
+    assert.deepEqual(f.service.task(id).command, failed.command); assert.equal(f.service.task(id).policy!.permissions.modify, 'allow');
+    assert(f.service.task(id).needed.every(r => r.protection)); assert.equal(f.repo.read().revision, before.revision);
+    f.control('task.approve', id); const completed = await f.wait(id, 'completed');
+    assert.equal(completed.error, undefined); assert.equal(completed.retryable, undefined);
+    assert.equal(completed.command!.operationId, failed.command!.operationId); assert.equal(f.repo.read().revision, before.revision + 1);
+    f.control('task.resume', id); assert.equal(f.repo.history().filter(h => h.taskId === id).length, 1);
+  } finally { await f.close(); }
+});
+test('failed checkpoints reopen without automatic execution, including legacy failures without retryability metadata', async () => {
+  for (const legacy of [false, true]) {
+    const f = await fixture(undefined, 'beforeHistory'); try {
+      const session = f.session(); f.fault(); const id = f.enqueue(session); const failed = await f.wait(id, 'failed');
+      if (legacy) { const { retryable, ...record } = failed; f.store.db.prepare('UPDATE agent_tasks SET data=? WHERE id=?').run(JSON.stringify(record), id); }
+      await f.restart(); assert.equal(f.service.task(id).status, 'interrupted'); await delay(30); assert.equal(f.repo.read().revision, 1);
+      f.control('task.resume', id); await f.wait(id, 'completed');
+      assert.equal(f.service.task(id).command!.operationId, failed.command!.operationId); assert.equal(f.repo.history().filter(h => h.taskId === id).length, 1);
+    } finally { await f.close(); }
+  }
+});
+test('invalid plans and stale data cannot be retried through pause, while failure and conflict cancellation works', async () => {
+  const f = await fixture(); try {
+    const sessionId = f.session(), id = crypto.randomUUID();
+    f.service.action({ type: 'task.enqueue', sessionId, id, title: '无效方案', intent: 'change', reads: [], command: command(f.repo.read(), f.wid, [{ type: 'object.update', id: f.wid, set: { 'sys.kind': ['entry'] } }]) });
+    const failed = await f.wait(id, 'failed'); assert.equal(failed.retryable, false);
+    assert.throws(() => f.control('task.resume', id), /重新准备/); assert.throws(() => f.control('task.pause', id), /恢复条件/);
+    await f.restart(); assert.equal(f.service.task(id).status, 'failed'); f.control('task.cancel', id); assert.equal(f.service.task(id).status, 'cancelled');
+    assert.throws(() => f.service.action({ type: 'task.cancel', id, expectedVersion: failed.version }), /状态已改变/);
+    const stale = f.enqueue(sessionId, '过期方案', 0); await f.wait(stale, 'conflict');
+    assert.throws(() => f.control('task.resume', stale), /重新准备/); f.control('task.cancel', stale); assert.equal(f.service.task(stale).status, 'cancelled');
+    assert.equal(f.repo.read().revision, 1);
   } finally { await f.close(); }
 });

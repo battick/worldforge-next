@@ -1,6 +1,7 @@
 import { Annotation, Command, END, START, StateGraph, interrupt } from '@langchain/langgraph';
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 import { EventEmitter } from 'node:events';
+import { ZodError } from 'zod';
 import type Database from 'better-sqlite3';
 import { AppError } from '../core/errors.ts';
 import { canonical } from '../core/model.ts';
@@ -24,7 +25,7 @@ export class Collaboration {
         CREATE TABLE IF NOT EXISTS agent_protections(id TEXT PRIMARY KEY, data TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS agent_tasks(id TEXT PRIMARY KEY, data TEXT NOT NULL);
         INSERT OR IGNORE INTO agent_meta VALUES(1,0);`);
-      for (const task of this.tasks()) if (!terminal.has(task.status) && task.status !== 'paused') this.putTask(task.id, { status: 'interrupted', step: '进度已保存，点击继续后恢复原任务' });
+      for (const task of this.tasks()) if ((!terminal.has(task.status) || task.status === 'failed' && task.retryable !== false) && task.status !== 'paused') this.putTask(task.id, { status: 'interrupted', step: '进度已保存，点击继续后恢复原任务' });
     })();
     this.graph = new StateGraph(GraphState)
       .addNode('start', async ({ id }) => {
@@ -97,10 +98,16 @@ export class Collaboration {
         default: {
           const task = this.task(action.id);
           if (task.version !== action.expectedVersion) fail('VERSION_CONFLICT', '任务状态已改变，请重新读取。');
-          if (terminal.has(task.status)) return;
-          if (action.type === 'task.pause') this.putTask(task.id, { status: 'paused', step: '用户已暂停，已保存成果保留' });
-          if (action.type === 'task.cancel') this.putTask(task.id, { status: 'cancelled', step: '任务已取消，已有成果未回滚' });
-          if (action.type === 'task.resume') { if (!['paused', 'interrupted'].includes(task.status)) fail('TASK_STATE', '只有暂停或中断任务可以继续；等待授权的任务须先明确授权。'); this.putTask(task.id, { status: 'queued', step: '用户已请求继续原任务' }); }
+          if (['completed', 'cancelled'].includes(task.status)) return;
+          if (action.type === 'task.cancel') { this.putTask(task.id, { status: 'cancelled', step: '任务已取消，已有成果未回滚' }); break; }
+          if (action.type === 'task.pause') {
+            if (!['running', 'queued', 'waiting', 'blocked', 'paused', 'interrupted'].includes(task.status)) fail('TASK_STATE', '失败或冲突任务不能通过暂停改变恢复条件。');
+            this.putTask(task.id, { status: 'paused', step: '用户已暂停，已保存成果保留' });
+          }
+          if (action.type === 'task.resume') {
+            if (!['paused', 'interrupted'].includes(task.status) && !(task.status === 'failed' && task.retryable !== false)) fail('TASK_STATE', '只有暂停、中断或可重试失败任务可以继续；等待授权的任务须先明确授权，冲突或无效方案须重新准备。');
+            this.putTask(task.id, { status: 'queued', step: '用户已请求继续原任务', error: undefined, retryable: undefined });
+          }
           if (action.type === 'task.approve') {
             if (!['waiting', 'blocked'].includes(task.status) || !task.needed.length) fail('TASK_STATE', '当前任务没有等待这项授权。');
             this.putTask(task.id, { grants: [...new Set([...task.grants, ...task.needed.map(r => r.key)])], needed: [], status: 'queued', step: '仅授权本任务的已列明范围' });
@@ -154,7 +161,10 @@ export class Collaboration {
       if (task.status === 'paused' || task.status === 'cancelled') return;
       const committed = this.workspace.history().find(h => h.operationId === task.command?.operationId && h.actor === 'agent' && h.taskId === id);
       if (committed) { this.putTask(id, { status: 'interrupted', step: '保存结果待核对，点击继续原任务', error: '正式修改可能已经生效，继续时只核对原操作。' }); return; }
-      this.putTask(id, { status: this.closing ? 'interrupted' : e instanceof AppError && e.code === 'VERSION_CONFLICT' ? 'conflict' : 'failed', step: this.closing ? '进度已保存，点击继续' : '未完成，请核对原因后重新准备', error: e instanceof Error ? e.message : '执行失败' });
+      const conflict = e instanceof AppError && e.code === 'VERSION_CONFLICT';
+      const retryable = !(e instanceof ZodError) && !(e instanceof AppError && e.status < 500);
+      this.putTask(id, { status: this.closing ? 'interrupted' : conflict ? 'conflict' : 'failed', retryable: !conflict && retryable,
+        step: this.closing ? '进度已保存，点击继续' : conflict || !retryable ? '尚未应用，请核对资料并重新准备方案' : '执行遇到故障，排除原因后可继续原任务', error: e instanceof Error ? e.message : '执行失败' });
     }
   }
   /** The future model tool receives only these explicit targets, never a complete workspace snapshot. */

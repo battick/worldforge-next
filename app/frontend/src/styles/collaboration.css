@@ -18,3 +18,9 @@
 .collaboration-entry > button { padding: 8px 12px; border-radius: 4px; color: var(--color-accent); background: #e8ecdf; }
 
 .collaboration-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; padding: 12px; background: #eef0e6; font: inherit; line-height: 1.7; }
+.collaboration-definition { padding: 12px; background: #eef0e6; margin: 12px 0; min-width: 0; }
+.collaboration-definition h5 { font-size: 14px; margin: 0 0 12px; }
+.collaboration-rule-table { overflow-x: auto; }
+.collaboration-rule-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.collaboration-rule-table th, .collaboration-rule-table td { padding: 8px; border: 1px solid var(--color-border); text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.collaboration-affected { max-height: 180px; overflow: auto; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }

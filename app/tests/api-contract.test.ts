@@ -54,6 +54,9 @@ test('checked-in OpenAPI equals the live API contract and preserves existing end
     const generated = JSON.parse(await readFile(path.join(root, 'contracts/openapi.json'), 'utf8'));
     assert.deepEqual(live, generated);
     assert.equal(live.info.version, API_VERSION);
+    const task = live.paths['/api/agent/state'].get.responses[200].content['application/json'].schema.properties.tasks.items;
+    assert.equal(task.properties.retryable.type, 'boolean');
+    assert(!task.required.includes('retryable'), 'legacy task responses remain compatible');
     for (const route of ['/api/health', '/api/snapshot', '/api/events', '/api/demo/document', '/api/demo/messages', '/api/demo/tasks/{id}/resume', '/api/core/snapshot', '/api/core/commands', '/api/core/example']) assert(live.paths[route], route);
     assert.equal(live.paths['/api/demo/document'].put.requestBody.content['application/json'].schema.properties.version.type, 'integer');
   } finally { await running.close(); }

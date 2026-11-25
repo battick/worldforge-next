@@ -15,6 +15,8 @@ export interface AgentTask {
   id: string; sessionId: string; title: string; intent: 'read' | 'change'; reads: Target[]; command?: WorkspaceCommand;
   status: AgentTaskStatus; step: string; version: number; policy?: Policy; grants: string[]; needed: Requirement[];
   createdAt: string; updatedAt: string; receipt?: Receipt; result?: { target: Target; value: unknown }[]; error?: string;
+  /** Failed tasks may retry their unchanged plan; absent on legacy failures means recheck on resume. */
+  retryable?: boolean;
 }
 export interface CollaborationView { eventId: number; defaults: Policy; sessions: Session[]; protections: Protection[]; tasks: AgentTask[] }
 export type AgentAction =
