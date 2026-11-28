@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3';
 import { EventEmitter } from 'node:events';
-import { mkdirSync, openSync, readFileSync, closeSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { AppError } from '../core/errors.ts';
+import { acquireDataLock } from './data-lock.ts';
 import type { DemoDocument, DemoMessage, DemoTask, Snapshot, TaskStatus } from '../../contracts/demo.ts';
 
 export const SAMPLE_MARKDOWN = `# 雾海来信
@@ -34,45 +35,24 @@ export const SAMPLE_MARKDOWN = `# 雾海来信
 export class Store {
   readonly db: Database.Database;
   readonly events = new EventEmitter();
-  private lockPath: string;
+  private releaseLock: () => void;
 
   constructor(dataDir: string) {
     mkdirSync(dataDir, { recursive: true });
-    this.lockPath = path.join(dataDir, 'app.lock');
-    this.acquireLock();
+    this.releaseLock = acquireDataLock(dataDir);
+    let opened: Database.Database | undefined;
     try {
-      this.db = new Database(path.join(dataDir, 'worldforge.sqlite'));
+      this.db = opened = new Database(path.join(dataDir, 'worldforge.sqlite'));
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('foreign_keys = ON');
       this.db.pragma('busy_timeout = 5000');
       this.db.pragma('synchronous = FULL');
       this.migrate();
     } catch (error) {
-      unlinkSync(this.lockPath);
+      opened?.close();
+      this.releaseLock();
       throw error;
     }
-  }
-
-  private acquireLock() {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const fd = openSync(this.lockPath, 'wx');
-        writeFileSync(fd, String(process.pid));
-        closeSync(fd);
-        return;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-        const pid = Number(readFileSync(this.lockPath, 'utf8'));
-        if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('数据锁文件无效，请确认没有服务使用此目录后移除 app.lock。');
-        try { process.kill(pid, 0); }
-        catch (e) {
-          if ((e as NodeJS.ErrnoException).code === 'ESRCH') { unlinkSync(this.lockPath); continue; }
-          throw e;
-        }
-        throw new Error('此数据目录已被另一个 WorldForge 服务使用。请先关闭该服务。');
-      }
-    }
-    throw new Error('无法取得数据目录锁。');
   }
 
   private migrate() {
@@ -147,5 +127,5 @@ export class Store {
     this.change('message.delta', () => this.db.prepare('UPDATE demo_messages SET text=? WHERE id=?').run(text, `${id}:assistant`));
   }
 
-  close() { this.db.close(); unlinkSync(this.lockPath); }
+  close() { try { this.db.close(); } finally { this.releaseLock(); } }
 }

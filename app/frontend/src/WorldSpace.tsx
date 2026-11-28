@@ -29,12 +29,12 @@ export const WorldSpace = forwardRef<DirtyHandle, { state: WorkspaceState; world
       const payload = file ? encodeBytes(new Uint8Array(await file.arrayBuffer())) : encodeText(text);
       await execute(command(state, worldId, [{ type: 'resource.put', id: crypto.randomUUID(), worldId, path, mime: file?.type || (path.endsWith('.md') ? 'text/markdown' : 'text/plain'), content: payload, space: true }]));
       setNotice('原始资料已保存；没有生成或覆盖条目。'); setText(''); setFile(undefined); if (upload.current) upload.current.value = '';
-    }); }}>
+    }); }}><fieldset disabled={busy} className="wiki-draft-fields">
       <label>保存路径（用 / 嵌套目录）<input aria-label="资料保存路径" value={path} onChange={e => setPath(e.target.value)} required /></label>
       <label>上传文件<input ref={upload} aria-label="上传资料文件" type="file" onChange={e => { const next = e.target.files?.[0]; setFile(next); if (next) { setPath(`资料/${next.name}`); setText(''); } }} /></label>
       <label>或粘贴文字<textarea aria-label="粘贴资料文字" value={text} onChange={e => { setText(e.target.value); setFile(undefined); if (upload.current) upload.current.value = ''; }} /></label>
       <button className="button-primary" disabled={busy || (!file && !text)}>保存资料</button>
-    </form>
+    </fieldset></form>
     <label>查看目录<input aria-label="空间目录筛选" placeholder="例如 资料/人物" value={prefix} onChange={e => setPrefix(e.target.value)} /></label>
     <div className="wiki-file-grid"><div className="wiki-file-list">{resources.filter(r => !prefix || r.path === prefix || r.path.startsWith(prefix.replace(/\/$/, '') + '/')).sort((a, b) => a.path.localeCompare(b.path, 'zh-CN')).map(r => <button key={r.id} aria-pressed={r.id === current} onClick={() => choose(r)}>{r.path}<small>版本 {r.version}</small></button>)}{!resources.length && <p>空间还没有文件。</p>}</div>
     <div>{selected && <><h3>{selected.path}</h3><label>内容版本<select aria-label="资料内容版本" value={version ?? selected.version} onChange={e => setVersion(Number(e.target.value))}>{state.resourceVersions.filter(v => v.id === selected.id).map(v => <option key={v.version} value={v.version}>版本 {v.version}</option>)}</select></label><button onClick={download}>下载原件</button>

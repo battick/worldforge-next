@@ -82,8 +82,9 @@ export class Collaboration {
           this.save('agent_sessions', action.id, { id: action.id, name: action.name, policy: { ...this.read().defaults, version: 0 } }); break;
         }
         case 'protection.set': {
-          this.targetExists(action.target); const key = targetKey(action.target), previous = this.read().protections.find(p => p.key === key);
+          const key = targetKey(action.target), previous = this.read().protections.find(p => p.key === key);
           if ((previous?.version ?? 0) !== action.expectedVersion) fail('VERSION_CONFLICT', '内容保护已有更新，请重新读取。');
+          if (action.enabled || !previous) this.targetExists(action.target);
           this.save('agent_protections', key, { key, target: action.target, enabled: action.enabled, version: action.expectedVersion + 1 }); break;
         }
         case 'task.enqueue': {

@@ -22,6 +22,7 @@ export function WikiWorkbench() {
   const [pins, setPins] = useState<string[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
   const [worldForm, setWorldForm] = useState(false), [newKind, setNewKind] = useState<'entry' | 'relation' | 'folder'>();
   const [generation, setGeneration] = useState(0), [uncertain, setUncertain] = useState(false);
+  const [saving, setSaving] = useState(false), [creating, setCreating] = useState(false);
   const [menu, setMenu] = useState<{ id: string; from: string }>();
   const actions = useRef<HTMLDivElement>(null);
   const pending = useRef<WorkspaceCommand | undefined>(undefined), sending = useRef(false);
@@ -52,11 +53,11 @@ export function WikiWorkbench() {
       }
     };
     apply(); window.addEventListener('hashchange', apply); return () => window.removeEventListener('hashchange', apply);
-  }, [view, worldId, selected]);
+  }, [view, worldId, selected, tabs]);
   const execute = async (request: WorkspaceCommand) => {
     if (sending.current) throw new Error('上一项保存尚未完成，请稍后再试。');
     if (pending.current && pending.current.operationId !== request.operationId) throw new Error('上一项保存结果尚未确认，请先点击“核对并重试原保存”。');
-    pending.current = request; sending.current = true;
+    pending.current = request; sending.current = true; setSaving(true);
     try {
       try { await api.execute(request); }
       catch (e) {
@@ -69,7 +70,7 @@ export function WikiWorkbench() {
       if (e instanceof ApiClientError && e.status >= 400 && e.status < 500) { pending.current = undefined; setUncertain(false); }
       else setUncertain(true);
       throw e;
-    } finally { sending.current = false; }
+    } finally { sending.current = false; setSaving(false); }
   };
   const run = async (action: () => Promise<void>) => { setError(''); setNotice(''); setBusy(true); try { await action(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } };
   if (!view) return <section className="wiki-workbench"><p role="status">{error || '正在读取世界…'}</p></section>;
@@ -79,10 +80,10 @@ export function WikiWorkbench() {
   const entries = searchObjects(state, worldId, query, field, fieldValue).filter(hit => (includeFolders || !isFolder(state, hit.object)) && (folder === '*' || folder === '' ? folder === '*' || !locationsOf(state, hit.object).length : locationsOf(state, hit.object).includes(folder)));
   const move = (item: ContentObject, destination: string, source = folder, add = false) => run(async () => { await execute(relocate(state, item, destination, source === '*' ? undefined : source, add)); setNotice(add ? '位置已添加，同一份条目没有复制。' : '位置已更新，其他位置和内容保留。'); });
   const pin = (id: string) => setPins(ids => ids.includes(id) ? ids : [...ids, id]);
-  const begin = (kind: 'entry' | 'relation' | 'folder') => { if (kind === newKind) return; if (!handles.current.create?.dirty() || window.confirm('新内容尚未保存，确定放弃并重新填写吗？')) setNewKind(kind); };
+  const begin = (kind: 'entry' | 'relation' | 'folder') => { if (creating || sending.current || kind === newKind) return; if (!handles.current.create?.dirty() || window.confirm('新内容尚未保存，确定放弃并重新填写吗？')) setNewKind(kind); };
   return <WikiPreviewContext.Provider value={pin}><section className="wiki-workbench" aria-label="手工Wiki">
-    <div className="wiki-heading"><div><span className="eyebrow">世界与资料</span><h1>我的世界</h1></div><button className="button-primary" onClick={() => { if (!worldForm || !worldDraft.current?.dirty() || window.confirm('世界草案尚未保存，确定关闭表单吗？')) setWorldForm(open => !open); }}>创建世界</button></div>
-    {worldForm && <CreateWorld ref={worldDraft} state={state} execute={execute} onCreated={(next, id) => { setWorldForm(false); route(next, id); }} />}
+    <div className="wiki-heading"><div><span className="eyebrow">世界与资料</span><h1>我的世界</h1></div><button className="button-primary" disabled={saving || creating} onClick={() => { if (!creating && !sending.current && (!worldForm || !worldDraft.current?.dirty() || window.confirm('世界草案尚未保存，确定关闭表单吗？'))) setWorldForm(open => !open); }}>创建世界</button></div>
+    {worldForm && <CreateWorld locked={saving || creating} onBusy={setCreating} ref={worldDraft} state={state} execute={execute} onCreated={(next, id) => { setWorldForm(false); route(next, id); }} />}
     <p className="wiki-note">选择下面的世界，进入条目、正文、资料空间、字段和修改记录；也可以创建新世界。</p>
     <div className="wiki-world-list">{state.worlds.map(w => {
       const object = state.objects.find(o => o.id === w.rootId)!;
@@ -93,7 +94,7 @@ export function WikiWorkbench() {
       <nav className="wiki-section-tabs" aria-label="世界功能">{([['wiki', 'Wiki'], ['space', '空间'], ['definitions', '字段定义'], ['relations', '关系定义'], ['history', '修改记录']] as const).map(([key, label]) => <button key={key} aria-pressed={section === key} onClick={() => setSection(key)}>{label}</button>)}</nav>
       <div hidden={section !== 'wiki'}>
         <div className="wiki-layout"><aside className="wiki-sidebar">
-          <div className="wiki-toolbar"><button onClick={() => begin('entry')}>新建条目</button><button onClick={() => begin('relation')}>新建关系</button><button onClick={() => begin('folder')}>新建文件夹</button></div>
+          <div className="wiki-toolbar"><button disabled={saving || creating} onClick={() => begin('entry')}>新建条目</button><button disabled={saving || creating} onClick={() => begin('relation')}>新建关系</button><button disabled={saving || creating} onClick={() => begin('folder')}>新建文件夹</button></div>
           <button className="wiki-root-link" onClick={e => open(worldId, e.ctrlKey || e.metaKey)}>世界蓝图与详细编辑</button>
           <div className="wiki-tree" aria-label="文件夹导航"><button aria-pressed={folder === '*'} onClick={() => setFolder('*')}>全部条目</button><button aria-pressed={folder === ''} onClick={() => setFolder('')} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); try { const drag = JSON.parse(e.dataTransfer.getData('text/plain')); const item = state.objects.find(o => o.id === drag.id); if (item) void move(item, '', drag.from); } catch { setError('无法读取拖动的位置。'); } }}>待整理</button>
             <FolderTree state={state} folders={folders} parent="" path={[]} selected={folder} onSelect={setFolder} onDrop={(id, source, target) => { const item = state.objects.find(o => o.id === id); if (item) void move(item, target, source); }} />
@@ -105,10 +106,11 @@ export function WikiWorkbench() {
           {menu && state.objects.some(o => o.id === menu.id) && <section className="wiki-context-menu" aria-label="条目右键操作"><strong>{titleOf(state, state.objects.find(o => o.id === menu.id)!)}</strong><label>添加位置<select aria-label="右键添加位置" value={targetFolder} onChange={e => setTargetFolder(e.target.value)}><option value="">选择文件夹</option>{folders.filter(f => f.id !== menu.id).map(f => <option key={f.id} value={f.id}>{titleOf(state, f)}</option>)}</select></label><button disabled={!targetFolder || busy} onClick={() => move(state.objects.find(o => o.id === menu.id)!, targetFolder, menu.from, true)}>添加此位置</button><button disabled={busy || !locationsOf(state, state.objects.find(o => o.id === menu.id)!).includes(menu.from)} onClick={() => move(state.objects.find(o => o.id === menu.id)!, '', menu.from)}>移除此位置</button><button onClick={() => { actions.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setMenu(undefined); }}>删除内容与更多操作</button><button onClick={() => setMenu(undefined)}>关闭操作菜单</button></section>}
           {!entries.length && <p className="wiki-note">这里还没有匹配的条目。</p>}
         </aside><div className="wiki-content">
-          {newKind && <CreateObject ref={handle => { handles.current.create = handle; }} key={newKind} state={state} worldId={worldId} kind={newKind} folder={folder} execute={execute} onClose={() => { if (!handles.current.create?.dirty() || window.confirm('新内容尚未保存，确定取消吗？')) setNewKind(undefined); }} onCreated={(next, id) => { setNewKind(undefined); route(next, id, true); }} />}
+          {newKind && <CreateObject locked={saving || creating} onBusy={setCreating} ref={handle => { handles.current.create = handle; }} key={newKind} state={state} worldId={worldId} kind={newKind} folder={folder} execute={execute} onClose={() => { if (!handles.current.create?.dirty() || window.confirm('新内容尚未保存，确定取消吗？')) setNewKind(undefined); }} onCreated={(next, id) => { setNewKind(undefined); route(next, id, true); }} />}
           <div className="wiki-tabs" role="tablist" aria-label="已打开条目">{tabs.map(id => { const item = state.objects.find(o => o.id === id); if (!item) return null; return <div key={id}><button role="tab" aria-selected={id === selected} onClick={() => open(id)}>{titleOf(state, item)}</button><button aria-label={`关闭${titleOf(state, item)}`} onClick={() => {
             if (handles.current[`entry:${id}`]?.dirty() && !window.confirm('此条目有未保存内容，确定关闭吗？')) return;
-            const remaining = tabs.filter(t => t !== id); setTabs(remaining); if (selected === id) setSelected(remaining.at(-1) ?? '');
+            const remaining = tabs.filter(t => t !== id); setTabs(remaining);
+            if (selected === id) { const next = remaining.at(-1) ?? ''; setSelected(next); history.replaceState(null, '', `#wiki/${worldId}${next ? `/${next}` : ''}`); }
           }}>×</button></div>; })}</div>
           {tabs.map(id => { const item = state.objects.find(o => o.id === id); if (!item) return null; return <div key={`${id}:${generation}`} hidden={selected !== id} className="wiki-entry"><div className="wiki-entry-heading"><h2>{titleOf(state, item)}</h2><small>{item.id}</small></div>
             <WikiEntry ref={handle => { handles.current[`entry:${id}`] = handle; }} object={item} state={state} execute={execute} onOpen={open} />
@@ -137,25 +139,25 @@ function Highlight({ text, query }: { text: string; query: string }) {
 function FolderTree({ state, folders, parent, path, selected, onSelect, onDrop }: { state: WorkspaceState; folders: ContentObject[]; parent: string; path: string[]; selected: string; onSelect(id: string): void; onDrop(id: string, from: string, target: string): void }) {
   return <ul>{folders.filter(f => parent ? locationsOf(state, f).includes(parent) : !locationsOf(state, f).length).map(f => <li key={f.id} onDragOver={e => { e.preventDefault(); e.stopPropagation(); }} onDrop={e => { e.preventDefault(); e.stopPropagation(); try { const item = JSON.parse(e.dataTransfer.getData('text/plain')); onDrop(item.id, item.from, f.id); } catch {} }}><button aria-pressed={selected === f.id} onClick={() => onSelect(f.id)}>▱ {titleOf(state, f)}</button>{path.includes(f.id) ? <small>循环位置，停止展开</small> : <FolderTree state={state} folders={folders} parent={f.id} path={[...path, f.id]} selected={selected} onSelect={onSelect} onDrop={onDrop} />}</li>)}</ul>;
 }
-const CreateWorld = forwardRef<DirtyHandle, { state: WorkspaceState; execute(c: WorkspaceCommand): Promise<WorkspaceState>; onCreated(state: WorkspaceState, id: string): void }>(function CreateWorld({ state, execute, onCreated }, ref) {
+const CreateWorld = forwardRef<DirtyHandle, { state: WorkspaceState; execute(c: WorkspaceCommand): Promise<WorkspaceState>; onCreated(state: WorkspaceState, id: string): void; onBusy(value: boolean): void; locked: boolean }>(function CreateWorld({ state, execute, onCreated, onBusy, locked }, ref) {
   const [name, setName] = useState(''), [idea, setIdea] = useState(''), [file, setFile] = useState<File>(), [busy, setBusy] = useState(false), [error, setError] = useState('');
   useDirtyGuard(ref, () => Boolean(name || idea || file || busy));
-  return <form className="wiki-create" aria-label="创建世界表单" onSubmit={async e => { e.preventDefault(); setBusy(true); setError(''); try {
+  return <form className="wiki-create" aria-label="创建世界表单" onSubmit={async e => { e.preventDefault(); if (locked) return; setBusy(true); onBusy(true); setError(''); try {
     let source: SourceFile | undefined;
     if (file) { if (file.size > 1_000_000) throw new Error('本阶段每个文件最多1MB。'); source = { name: file.name, mime: file.type || 'application/octet-stream', content: encodeBytes(new Uint8Array(await file.arrayBuffer())) }; }
     const result = newWorld(state, name, idea, source); const next = await execute(result.command); onCreated(next, result.worldId);
-  } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}><h2>从任意起点创建世界</h2><label>世界名称（可稍后填写）<input aria-label="新世界名称" value={name} onChange={e => setName(e.target.value)} /></label><label>一个想法或草案<textarea aria-label="世界初始想法" value={idea} onChange={e => setIdea(e.target.value)} maxLength={100000} /></label><label>已有资料（可选）<input aria-label="创建世界的已有资料" type="file" onChange={e => setFile(e.target.files?.[0])} /></label><p>可以全部留空开始。资料原件进入此世界空间，正文和结构可随时手改，确认创建不要求先填满内容。</p><button className="button-primary" disabled={busy}>保存世界草案</button>{error && <p role="alert" className="inline-error">{error}</p>}</form>;
+  } catch (e) { setError((e as Error).message); } finally { setBusy(false); onBusy(false); } }}><fieldset disabled={busy || locked} className="wiki-draft-fields"><h2>从任意起点创建世界</h2><label>世界名称（可稍后填写）<input aria-label="新世界名称" value={name} onChange={e => setName(e.target.value)} /></label><label>一个想法或草案<textarea aria-label="世界初始想法" value={idea} onChange={e => setIdea(e.target.value)} maxLength={100000} /></label><label>已有资料（可选）<input aria-label="创建世界的已有资料" type="file" onChange={e => setFile(e.target.files?.[0])} /></label><p>可以全部留空开始。资料原件进入此世界空间，正文和结构可随时手改，确认创建不要求先填满内容。</p><button className="button-primary" disabled={busy}>保存世界草案</button>{error && <p role="alert" className="inline-error">{error}</p>}</fieldset></form>;
 });
-const CreateObject = forwardRef<DirtyHandle, { state: WorkspaceState; worldId: string; kind: 'entry' | 'relation' | 'folder'; folder: string; execute(c: WorkspaceCommand): Promise<WorkspaceState>; onClose(): void; onCreated(state: WorkspaceState, id: string): void }>(function CreateObject({ state, worldId, kind, folder, execute, onClose, onCreated }, ref) {
+const CreateObject = forwardRef<DirtyHandle, { state: WorkspaceState; worldId: string; kind: 'entry' | 'relation' | 'folder'; folder: string; execute(c: WorkspaceCommand): Promise<WorkspaceState>; onClose(): void; onCreated(state: WorkspaceState, id: string): void; onBusy(value: boolean): void; locked: boolean }>(function CreateObject({ state, worldId, kind, folder, execute, onClose, onCreated, onBusy, locked }, ref) {
   const [name, setName] = useState(''), [sources, setSources] = useState<string[]>([]), [targets, setTargets] = useState<string[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [templateId, setTemplateId] = useState(''), [extraFields, setExtraFields] = useState<Record<string, unknown[]>>({});
   const template = state.objects.find(o => o.id === templateId);
   useDirtyGuard(ref, () => Boolean(name || sources.length || targets.length || templateId || busy));
   const endpoints = (label: string, values: string[], set: (v: string[]) => void) => <label>{label}<select multiple aria-label={label} value={values} onChange={e => set([...e.target.selectedOptions].map(o => o.value))}>{state.objects.map(o => <option key={o.id} value={o.id}>{titleOf(state, o)} · {o.id.slice(0, 8)}</option>)}</select></label>;
-  return <form className="wiki-create" onSubmit={async e => { e.preventDefault(); setBusy(true); setError(''); try {
+  return <form className="wiki-create" onSubmit={async e => { e.preventDefault(); if (locked) return; setBusy(true); onBusy(true); setError(''); try {
     const location = folder !== '*' && folder !== '' ? folder : undefined;
     if (kind === 'folder' && state.objects.some(o => o.worldId === worldId && isFolder(state, o) && titleOf(state, o) === name && (location ? locationsOf(state, o).includes(location) : !locationsOf(state, o).length))) throw new Error('此位置已存在同名文件夹。请改名或取消，不会自动合并或覆盖。');
     const result = newObject(state, worldId, name, kind === 'relation' ? 'relation' : 'entry', sources, targets, kind === 'folder', location, templateId || undefined, decodeFields(state, extraFields));
     const next = await execute(result.command); onCreated(next, result.id);
-  } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}><h3>新建{kind === 'relation' ? '关系' : kind === 'folder' ? '文件夹' : '条目'}</h3><label>名称<input aria-label="新内容名称" value={name} required={kind === 'folder'} onChange={e => setName(e.target.value)} /></label>{kind === 'relation' && <><label>关系定义<select aria-label="选择关系定义" value={templateId} onChange={e => { const object = state.objects.find(o => o.id === e.target.value); setTemplateId(e.target.value); setExtraFields(Object.fromEntries((object ? relationFields(state, object) : []).filter(c => !state.definitions.find(d => d.id === c.fieldId)?.marks.some(m => m === 'source' || m === 'target')).map(c => [c.fieldId, state.definitions.find(d => d.id === c.fieldId)?.type === 'json' ? (c.defaults ?? []).map(v => JSON.stringify(v, null, 2)) : structuredClone(c.defaults ?? [])]))); }}><option value="">自定义关系</option>{state.objects.filter(o => o.worldId === worldId && isRelationDefinition(state, o)).map(o => <option key={o.id} value={o.id}>{titleOf(state, o)}</option>)}</select></label>{template && <WikiFields state={state} object={{ id: 'draft', worldId, fields: {} }} fields={extraFields} setFields={setExtraFields} editing />}{endpoints('关系起点（可多选）', sources, setSources)}{endpoints('关系目标（可多选）', targets, setTargets)}</>}<button className="button-primary" disabled={busy}>保存新内容</button><button type="button" onClick={onClose}>取消</button>{error && <p role="alert" className="inline-error">{error}</p>}</form>;
+  } catch (e) { setError((e as Error).message); } finally { setBusy(false); onBusy(false); } }}><fieldset disabled={busy || locked} className="wiki-draft-fields"><h3>新建{kind === 'relation' ? '关系' : kind === 'folder' ? '文件夹' : '条目'}</h3><label>名称<input aria-label="新内容名称" value={name} required={kind === 'folder'} onChange={e => setName(e.target.value)} /></label>{kind === 'relation' && <><label>关系定义<select aria-label="选择关系定义" value={templateId} onChange={e => { const object = state.objects.find(o => o.id === e.target.value); setTemplateId(e.target.value); setExtraFields(Object.fromEntries((object ? relationFields(state, object) : []).filter(c => !state.definitions.find(d => d.id === c.fieldId)?.marks.some(m => m === 'source' || m === 'target')).map(c => [c.fieldId, state.definitions.find(d => d.id === c.fieldId)?.type === 'json' ? (c.defaults ?? []).map(v => JSON.stringify(v, null, 2)) : structuredClone(c.defaults ?? [])]))); }}><option value="">自定义关系</option>{state.objects.filter(o => o.worldId === worldId && isRelationDefinition(state, o)).map(o => <option key={o.id} value={o.id}>{titleOf(state, o)}</option>)}</select></label>{template && <WikiFields state={state} object={{ id: 'draft', worldId, fields: {} }} fields={extraFields} setFields={setExtraFields} editing />}{endpoints('关系起点（可多选）', sources, setSources)}{endpoints('关系目标（可多选）', targets, setTargets)}</>}<button className="button-primary" disabled={busy}>保存新内容</button><button type="button" onClick={onClose}>取消</button>{error && <p role="alert" className="inline-error">{error}</p>}</fieldset></form>;
 });

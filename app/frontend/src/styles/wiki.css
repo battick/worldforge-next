@@ -98,3 +98,6 @@
   .wiki-world-heading > button { flex: 1; }
   .wiki-paper { padding: 14px; }
 }
+
+.wiki-workbench fieldset.wiki-draft-fields { border: 0; padding: 0; margin: 0; }
+.wiki-draft-fields > button { margin-right: 8px; }

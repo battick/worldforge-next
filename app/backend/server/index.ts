@@ -9,8 +9,8 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('PORT �
 const app = await createApplication({ dataDir, frontendOrigins: (process.env.WORLDFORGE_FRONTEND_ORIGINS ?? 'http://127.0.0.1:4317,http://localhost:4317').split(',').filter(Boolean), tickMs: Number(process.env.WORLDFORGE_DEMO_TICK_MS ?? 30) });
 app.server.on('error', async (error) => {
   console.error(error instanceof Error ? error.message : '服务启动失败');
-  await app.close();
-  process.exitCode = 1;
+  try { await app.close(); }
+  finally { process.exitCode = 1; if (process.connected) process.disconnect(); }
 });
 app.server.listen(port, '127.0.0.1', () => {
   const address = app.server.address();

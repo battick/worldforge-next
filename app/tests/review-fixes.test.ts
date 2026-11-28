@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Store } from '../backend/server/store.ts';
 import { WorkspaceRepository } from '../backend/server/workspace.ts';
+import { Collaboration } from '../backend/server/collaboration.ts';
 import { bodyRefs, command, encodeText, ensureField, moveResources, newObject, newWorld, relationDefinitionCommand, resourceChange, resourceText, saveBody, saveEntry, titleOf } from '../client/wiki.ts';
 import { relationFields } from '../contracts/relations.ts';
 import type { Change, ContentObject, DefinitionInput, WorkspaceState } from '../contracts/workspace.ts';
@@ -135,4 +136,48 @@ test('relation configuration propagates atomically, preserves values and records
     const detached = relationDefinitionCommand(state, wid, '师徒', relationFields(state, state.objects.find(o => o.id === template.id)!).filter(c => c.fieldId !== number), template.id);
     f.repo.execute(detached.command); assert.deepEqual(f.repo.read().objects.find(o => o.id === relations[0])!.fields[number], ['9']);
   } finally { await f.close(); }
+});
+
+
+test('an explicit relation name takes precedence over defaults and the empty title value sent by the form', async () => {
+  const f = await fixture();
+  try {
+    const wid = world(f.repo), title = f.repo.read().definitions.find(d => d.marks.includes('title'))!.id;
+    for (const defaults of [[], ['默认名称']]) {
+      const template = relationDefinitionCommand(f.repo.read(), wid, '命名配置', [{ fieldId: title, defaults }]); f.repo.execute(template.command);
+      const relation = newObject(f.repo.read(), wid, '明确名称', 'relation', [wid], [wid], false, undefined, template.id, { [title]: [] }); f.repo.execute(relation.command);
+      assert.equal(titleOf(f.repo.read(), f.repo.read().objects.find(o => o.id === relation.id)!), '明确名称');
+      const unnamed = newObject(f.repo.read(), wid, '', 'relation', [wid], [wid], false, undefined, template.id); f.repo.execute(unnamed.command);
+      assert.deepEqual(f.repo.read().objects.find(o => o.id === unnamed.id)!.fields[title], defaults);
+    }
+  } finally { await f.close(); }
+});
+
+test('dual endpoint marks remain supported but incompatible endpoint inputs cannot silently overwrite one another', async () => {
+  const f = await fixture();
+  try {
+    const wid = world(f.repo), a = entry(f.repo, wid, '甲'), b = entry(f.repo, wid, '乙'), dual = crypto.randomUUID();
+    f.repo.execute(command(f.repo.read(), wid, [{ type: 'definition.put', definition: definition(dual, { scope: wid, type: 'reference', marks: ['source', 'target'] }) }]));
+    const before = f.repo.read();
+    assert.throws(() => newObject(before, wid, '甲到乙', 'relation', [a], [b])); assert.deepEqual(f.repo.read(), before);
+    const template = relationDefinitionCommand(before, wid, '双用途', [{ fieldId: dual }]); f.repo.execute(template.command);
+    assert.throws(() => newObject(f.repo.read(), wid, '甲到乙', 'relation', [a], [b], false, undefined, template.id));
+    const loop = newObject(f.repo.read(), wid, '相同两端', 'relation', [a, b], [b, a], false, undefined, template.id); f.repo.execute(loop.command);
+    assert.deepEqual(f.repo.read().objects.find(o => o.id === loop.id)!.fields[dual], [{ ref: b }, { ref: a }]);
+    assert.deepEqual(f.repo.read().definitions.find(d => d.id === dual)!.marks, ['source', 'target']);
+  } finally { await f.close(); }
+});
+
+test('deleted protection targets can be unprotected by their saved version but cannot be protected again', async () => {
+  const f = await fixture(), service = new Collaboration(f.store.db, f.repo);
+  try {
+    const wid = world(f.repo), id = entry(f.repo, wid, '可手删'), target = { kind: 'object' as const, id };
+    service.action({ type: 'protection.set', target, enabled: true, expectedVersion: 0 });
+    f.repo.execute(command(f.repo.read(), wid, [{ type: 'object.delete', id }]));
+    assert.throws(() => service.action({ type: 'protection.set', target, enabled: false, expectedVersion: 0 }), { code: 'VERSION_CONFLICT' });
+    const next = service.action({ type: 'protection.set', target, enabled: false, expectedVersion: 1 });
+    assert.equal(next.protections[0]!.enabled, false); assert.equal(next.protections[0]!.version, 2);
+    assert.throws(() => service.action({ type: 'protection.set', target, enabled: true, expectedVersion: 2 }), { code: 'MODEL_INVALID' });
+    assert.throws(() => service.action({ type: 'protection.set', target: { kind: 'object', id: crypto.randomUUID() }, enabled: false, expectedVersion: 0 }), { code: 'MODEL_INVALID' });
+  } finally { await service.stop(); await f.close(); }
 });

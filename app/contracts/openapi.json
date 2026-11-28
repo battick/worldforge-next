@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "WorldForge 本机数据接口",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "description": "前端替换时保持本接口；支持手工世界、Wiki和空间资料，Agent仍为固定回复演示。"
   },
   "servers": [

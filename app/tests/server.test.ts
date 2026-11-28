@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createApplication } from '../backend/server/http.ts';
+import { workerUrl } from './helpers/worker-url.ts';
 import type { Snapshot } from '../contracts/demo.ts';
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -88,17 +89,7 @@ async function launchWorker(dataDir: string) {
   const child = spawn(process.execPath, ['--import', 'tsx', 'backend/server/index.ts'], {
     cwd: appDir, env: { ...process.env, PORT: '0', WORLDFORGE_API_PORT: '0', WORLDFORGE_DATA_DIR: dataDir, WORLDFORGE_DEMO_TICK_MS: '45' }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   });
-  const url = await new Promise<string>((resolve, reject) => {
-    let output = '';
-    const timer = setTimeout(() => reject(new Error('子进程未启动')), 15_000);
-    child.stdout.on('data', chunk => {
-      output += chunk.toString();
-      const match = output.match(/http:\/\/127\.0\.0\.1:\d+/);
-      if (match) { clearTimeout(timer); resolve(match[0]); }
-    });
-    child.once('exit', code => { clearTimeout(timer); reject(new Error(`子进程退出 ${code}`)); });
-    child.once('error', reject);
-  });
+  const url = await workerUrl(child);
   return { child, url };
 }
 

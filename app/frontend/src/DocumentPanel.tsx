@@ -19,7 +19,7 @@ export function DocumentPanel({ document }: { document: DemoDocument }) {
   state.current = { dirty, text };
 
   useEffect(() => {
-    if (document.version === saved.version) return;
+    if (document.version <= saved.version) return;
     // Milkdown's Markdown listener is debounced. Inspect its live document too.
     if (!state.current.dirty && !editor.current?.hasUnreportedChanges()) {
       setText(document.markdown); setSaved(document); setGeneration(n => n + 1);

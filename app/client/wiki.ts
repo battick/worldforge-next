@@ -89,8 +89,13 @@ export function newObject(state: WorkspaceState, worldId: string, name: string, 
     const configured = (mark: 'source' | 'target') => configs.map(c => state.definitions.find(d => d.id === c.fieldId)!).find(d => d.marks.includes(mark));
     const source = configured('source')?.id ?? ensure(state, worldId, changes, 'source', '关系起点', 'reference', {}, sources.map(ref => ({ ref })), id, kind);
     const target = configured('target')?.id ?? ensure(state, worldId, changes, 'target', '关系目标', 'reference', {}, targets.map(ref => ({ ref })), id, kind);
+    const sameEndpoints = JSON.stringify([...new Set(sources)].sort()) === JSON.stringify([...new Set(targets)].sort());
+    if (!sameEndpoints && candidateState(state, changes).definitions.some(d => (d.id === source || d.id === target) && d.marks.includes('source') && d.marks.includes('target'))) {
+      throw new Error('同一字段同时用作起点和目标，无法保存两组不同端点。请在关系定义中分别采用起点、目标字段，再创建关系。');
+    }
     if (template) fields[ensure(state, worldId, changes, 'relation-type', '关系定义', 'reference', { maxCount: 1 }, [{ ref: template.id }], id, kind)] = [{ ref: template.id }];
     fields[source] = sources.map(ref => ({ ref })); fields[target] = targets.map(ref => ({ ref }));
+    if (name.trim()) fields[title] = [name.trim()];
   }
   if (folder) fields[ensure(state, worldId, changes, 'navigation-folder', '导航文件夹', 'boolean', { maxCount: 1 }, [true], id, kind)] = [true];
   if (location) fields[ensure(state, worldId, changes, 'navigation', '位置', 'reference', { sameWorld: true }, [{ ref: location }], id, kind)] = [{ ref: location }];
